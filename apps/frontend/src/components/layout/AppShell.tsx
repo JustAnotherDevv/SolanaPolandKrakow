@@ -5,7 +5,7 @@ import { BottomNav, type Page } from './BottomNav'
 import { FeedPage } from '@/pages/FeedPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
-import { PublishPage } from '@/pages/PublishPage'
+import { CreatorPage } from '@/pages/CreatorPage'
 import type { FeedGame } from '@/lib/mockData'
 
 export function AppShell() {
@@ -45,7 +45,7 @@ export function AppShell() {
           )}
           {activePage === 'publish' && (
             <div key="publish" className="h-full">
-              <PublishPage />
+              <CreatorPage />
             </div>
           )}
         </AnimatePresence>

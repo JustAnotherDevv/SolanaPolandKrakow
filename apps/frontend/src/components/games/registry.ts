@@ -20,10 +20,21 @@ const GAME_MAP: Record<string, () => Promise<GameComponentModule>> = {
 }
 
 export function hasGame(slug: string): boolean {
-  return slug in GAME_MAP
+  return slug.startsWith('ai-') || slug in GAME_MAP
 }
 
 export async function loadGame(slug: string): Promise<ComponentType<GameComponentProps> | null> {
+  // AI-generated games: slug = "ai-<gameId>"
+  if (slug.startsWith('ai-')) {
+    const gameId = slug.slice(3)
+    const mod = await import('@/components/creator/AiGameCanvas')
+    // Return a wrapper component that passes gameId
+    const AiGameCanvas = mod.AiGameCanvas
+    const Wrapper: ComponentType<GameComponentProps> = (props) =>
+      AiGameCanvas({ ...props, gameId })
+    return Wrapper
+  }
+
   const loader = GAME_MAP[slug]
   if (!loader) return null
   const mod = await loader()

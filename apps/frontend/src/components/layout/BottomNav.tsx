@@ -1,4 +1,4 @@
-import { Home, Trophy, User, Plus } from 'lucide-react'
+import { Home, Trophy, User, Wand2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
@@ -13,7 +13,7 @@ const tabs: { id: Page; icon: typeof Home; label: string }[] = [
   { id: 'feed', icon: Home, label: 'Feed' },
   { id: 'leaderboard', icon: Trophy, label: 'Ranks' },
   { id: 'profile', icon: User, label: 'Profile' },
-  { id: 'publish', icon: Plus, label: 'Publish' },
+  { id: 'publish', icon: Wand2, label: 'Create' },
 ]
 
 export function BottomNav({ activePage, onNavigate }: BottomNavProps) {

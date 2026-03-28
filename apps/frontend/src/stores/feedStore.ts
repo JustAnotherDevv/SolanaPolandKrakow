@@ -8,6 +8,7 @@ interface FeedStore {
   loading: boolean
   loadMore: () => void
   setCurrentIndex: (index: number) => void
+  addGame: (game: FeedGame) => void
 }
 
 export const useFeedStore = create<FeedStore>((set, get) => ({
@@ -26,4 +27,9 @@ export const useFeedStore = create<FeedStore>((set, get) => ({
   },
 
   setCurrentIndex: (index) => set({ currentIndex: index }),
+
+  addGame: (game) =>
+    set((state) => ({
+      games: [game, ...state.games],
+    })),
 }))
