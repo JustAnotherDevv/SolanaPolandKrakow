@@ -5,6 +5,7 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { motion } from 'motion/react'
 import { Eye, RotateCcw, Lock } from 'lucide-react'
 import { useCreatorStore } from '@/stores/creatorStore'
+import { AssetGallery } from './AssetGallery'
 import { cn } from '@/lib/utils'
 
 interface CodeEditorProps {
@@ -179,6 +180,8 @@ export function CodeEditor({ gameId, onPreview }: CodeEditorProps) {
           </p>
         )}
       </div>
+
+      <AssetGallery gameId={gameId} />
     </motion.div>
   )
 }

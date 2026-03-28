@@ -4,6 +4,8 @@ import { Send, Square, Copy, Check } from 'lucide-react'
 import { useCreatorStore } from '@/stores/creatorStore'
 import type { StoredMessage } from '@/stores/creatorStore'
 import { useGameGenerator } from '@/hooks/useGameGenerator'
+import { useAgentStream } from '@/hooks/useAgentStream'
+import { AgentProgress } from './AgentProgress'
 import { VersionBadge } from './VersionBadge'
 import { cn } from '@/lib/utils'
 
@@ -148,7 +150,16 @@ const STARTER_PROMPTS = [
 export function CreatorChat({ gameId, onPreview }: CreatorChatProps) {
   const game = useCreatorStore((s) => s.games.find((g) => g.id === gameId))
   const updateName = useCreatorStore((s) => s.updateName)
-  const { send, abort, streaming, streamedText } = useGameGenerator(gameId)
+  const agentStream = useAgentStream(gameId)
+  const directGen = useGameGenerator(gameId)
+  // Use backend agent when available, fallback to direct OpenRouter
+  const useBackend = agentStream.backendAvailable
+  const send = useBackend ? agentStream.send : directGen.send
+  const abort = useBackend ? agentStream.abort : directGen.abort
+  const streaming = useBackend ? agentStream.streaming : directGen.streaming
+  const steps = useBackend ? agentStream.steps : ([] as typeof agentStream.steps)
+  const assets = useBackend ? agentStream.assets : ([] as typeof agentStream.assets)
+  const streamedText = useBackend ? agentStream.streamedCode : directGen.streamedText
   const [input, setInput] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
@@ -218,6 +229,13 @@ export function CreatorChat({ gameId, onPreview }: CreatorChatProps) {
           )}
         </div>
       </div>
+
+      {/* Agent progress (backend mode) */}
+      <AnimatePresence>
+        {(steps.length > 0 || (streaming && agentStream.backendAvailable)) && (
+          <AgentProgress steps={steps} assets={assets} streaming={streaming} />
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-5">
