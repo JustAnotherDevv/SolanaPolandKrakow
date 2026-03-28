@@ -1,10 +1,13 @@
-import { WalletProvider } from "./providers/WalletProvider";
-import { AppShell } from "./components/layout/AppShell";
+import { WalletProvider } from './providers/WalletProvider'
+import { QueryProvider } from './providers/QueryProvider'
+import { AppShell } from './components/layout/AppShell'
 
 export default function App() {
   return (
-    <WalletProvider>
-      <AppShell />
-    </WalletProvider>
-  );
+    <QueryProvider>
+      <WalletProvider>
+        <AppShell />
+      </WalletProvider>
+    </QueryProvider>
+  )
 }

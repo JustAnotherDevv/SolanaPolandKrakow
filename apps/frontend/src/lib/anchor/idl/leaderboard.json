@@ -1,0 +1,145 @@
+{
+  "address": "7ytj4MrhqZhzSJLLQNSSVpHB24Tpma2GmQycqXdjhYu6",
+  "metadata": {
+    "name": "leaderboard",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "GameFeed on-chain leaderboard program"
+  },
+  "instructions": [
+    {
+      "name": "init_leaderboard",
+      "discriminator": [149, 106, 8, 198, 77, 113, 66, 44],
+      "accounts": [
+        {
+          "name": "leaderboard",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [108, 101, 97, 100, 101, 114, 98, 111, 97, 114, 100] },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        },
+        { "name": "creator", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "game_id", "type": "u64" }
+      ]
+    },
+    {
+      "name": "commit_score",
+      "discriminator": [98, 11, 244, 101, 56, 107, 182, 60],
+      "accounts": [
+        {
+          "name": "commitment",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [99, 111, 109, 109, 105, 116] },
+              { "kind": "account", "path": "player" },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        },
+        { "name": "player", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "game_id", "type": "u64" },
+        { "name": "commitment_hash", "type": { "array": ["u8", 32] } }
+      ]
+    },
+    {
+      "name": "reveal_score",
+      "discriminator": [215, 89, 3, 170, 35, 173, 214, 66],
+      "accounts": [
+        {
+          "name": "leaderboard",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [108, 101, 97, 100, 101, 114, 98, 111, 97, 114, 100] },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        },
+        {
+          "name": "commitment",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [99, 111, 109, 109, 105, 116] },
+              { "kind": "account", "path": "player" },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        },
+        { "name": "player", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "game_id", "type": "u64" },
+        { "name": "score", "type": "u64" },
+        { "name": "nonce", "type": { "array": ["u8", 32] } }
+      ]
+    }
+  ],
+  "accounts": [
+    { "name": "Leaderboard", "discriminator": [24, 108, 41, 46, 152, 58, 113, 166] },
+    { "name": "ScoreCommitment", "discriminator": [188, 42, 30, 117, 229, 145, 12, 73] }
+  ],
+  "errors": [
+    { "code": 6000, "name": "AlreadyRevealed", "msg": "Score already revealed" },
+    { "code": 6001, "name": "CommitmentExpired", "msg": "Commitment window expired (5 min)" },
+    { "code": 6002, "name": "InvalidHash", "msg": "Hash does not match score + nonce" }
+  ],
+  "types": [
+    {
+      "name": "Leaderboard",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "game_id", "type": "u64" },
+          {
+            "name": "entries",
+            "type": {
+              "vec": {
+                "defined": { "name": "ScoreEntry" }
+              }
+            }
+          },
+          { "name": "total_submissions", "type": "u64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "ScoreEntry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "player", "type": "pubkey" },
+          { "name": "score", "type": "u64" },
+          { "name": "timestamp", "type": "i64" }
+        ]
+      }
+    },
+    {
+      "name": "ScoreCommitment",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "player", "type": "pubkey" },
+          { "name": "game_id", "type": "u64" },
+          { "name": "commitment_hash", "type": { "array": ["u8", 32] } },
+          { "name": "revealed", "type": "bool" },
+          { "name": "final_score", "type": "u64" },
+          { "name": "created_at", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ]
+}

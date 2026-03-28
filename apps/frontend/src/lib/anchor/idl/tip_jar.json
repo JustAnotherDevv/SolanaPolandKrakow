@@ -1,0 +1,204 @@
+{
+  "address": "9c2GADAaWZsXcRojw1aWfnZuRgyAWAnrpXS8NNLcbrAN",
+  "metadata": {
+    "name": "tip_jar",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "GameFeed SOL tipping program"
+  },
+  "instructions": [
+    {
+      "name": "init_tip_jar",
+      "docs": [
+        "Creator initializes their tip jar."
+      ],
+      "discriminator": [
+        13,
+        138,
+        211,
+        230,
+        43,
+        176,
+        216,
+        115
+      ],
+      "accounts": [
+        {
+          "name": "tip_jar",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  112,
+                  95,
+                  106,
+                  97,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "platform_treasury"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "tip_sol",
+      "docs": [
+        "Tipper sends SOL to a creator, platform fee split applied."
+      ],
+      "discriminator": [
+        111,
+        81,
+        145,
+        255,
+        235,
+        229,
+        103,
+        75
+      ],
+      "accounts": [
+        {
+          "name": "tip_jar",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  105,
+                  112,
+                  95,
+                  106,
+                  97,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "relations": [
+            "tip_jar"
+          ]
+        },
+        {
+          "name": "platform_treasury",
+          "writable": true,
+          "relations": [
+            "tip_jar"
+          ]
+        },
+        {
+          "name": "tipper",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "TipJar",
+      "discriminator": [
+        1,
+        2,
+        42,
+        158,
+        102,
+        246,
+        174,
+        210
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "FeeTooHigh",
+      "msg": "Platform fee cannot exceed 10%"
+    },
+    {
+      "code": 6001,
+      "name": "ZeroAmount",
+      "msg": "Tip amount must be greater than zero"
+    },
+    {
+      "code": 6002,
+      "name": "AmountTooSmall",
+      "msg": "Minimum tip is 0.001 SOL"
+    }
+  ],
+  "types": [
+    {
+      "name": "TipJar",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "platform_treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "platform_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "total_received",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

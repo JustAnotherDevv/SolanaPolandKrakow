@@ -1,0 +1,21 @@
+[package]
+name = "reward_vault"
+version = "0.1.0"
+description = "GameFeed SPL token reward vault program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "reward_vault"
+
+[features]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.30.1", features = ["token", "associated_token"] }

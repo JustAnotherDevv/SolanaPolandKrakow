@@ -1,0 +1,20 @@
+[package]
+name = "game_registry"
+version = "0.1.0"
+description = "GameFeed game registry program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "game_registry"
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.30.1"

@@ -1,0 +1,114 @@
+{
+  "address": "DyQYRqHBVVX1FghxSLPX8VCPvd8JFdBWAMvCFEBVTVb6",
+  "metadata": {
+    "name": "game_registry",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "GameFeed game registry program"
+  },
+  "instructions": [
+    {
+      "name": "register_game",
+      "discriminator": [171, 109, 226, 211, 74, 155, 238, 97],
+      "accounts": [
+        {
+          "name": "game",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [103, 97, 109, 101] },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        },
+        { "name": "creator", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "game_id", "type": "u64" },
+        { "name": "name", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "thumbnail_uri", "type": "string" },
+        { "name": "slug", "type": "string" },
+        { "name": "tip_jar", "type": "pubkey" },
+        { "name": "leaderboard", "type": "pubkey" },
+        { "name": "reward_mint", "type": "pubkey" }
+      ]
+    },
+    {
+      "name": "increment_play_count",
+      "discriminator": [63, 212, 95, 168, 83, 213, 171, 28],
+      "accounts": [
+        {
+          "name": "game",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [103, 97, 109, 101] },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        }
+      ],
+      "args": [
+        { "name": "game_id", "type": "u64" }
+      ]
+    },
+    {
+      "name": "deactivate_game",
+      "discriminator": [232, 11, 91, 40, 175, 226, 66, 224],
+      "accounts": [
+        {
+          "name": "game",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [103, 97, 109, 101] },
+              { "kind": "arg", "path": "game_id" }
+            ]
+          }
+        },
+        { "name": "creator", "signer": true }
+      ],
+      "args": [
+        { "name": "game_id", "type": "u64" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GameEntry",
+      "discriminator": [56, 83, 12, 178, 33, 71, 121, 90]
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "NameTooLong", "msg": "Game name exceeds 64 chars" },
+    { "code": 6001, "name": "DescriptionTooLong", "msg": "Description exceeds 256 chars" },
+    { "code": 6002, "name": "SlugTooLong", "msg": "Slug exceeds 32 chars" },
+    { "code": 6003, "name": "Unauthorized", "msg": "Only the creator can modify this game" },
+    { "code": 6004, "name": "GameInactive", "msg": "This game has been deactivated" }
+  ],
+  "types": [
+    {
+      "name": "GameEntry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "id", "type": "u64" },
+          { "name": "creator", "type": "pubkey" },
+          { "name": "name", "type": "string" },
+          { "name": "description", "type": "string" },
+          { "name": "thumbnail_uri", "type": "string" },
+          { "name": "slug", "type": "string" },
+          { "name": "tip_jar", "type": "pubkey" },
+          { "name": "leaderboard", "type": "pubkey" },
+          { "name": "reward_mint", "type": "pubkey" },
+          { "name": "play_count", "type": "u64" },
+          { "name": "active", "type": "bool" },
+          { "name": "created_at", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ]
+}

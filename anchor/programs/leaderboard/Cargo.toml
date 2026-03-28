@@ -1,0 +1,20 @@
+[package]
+name = "leaderboard"
+version = "0.1.0"
+description = "GameFeed on-chain leaderboard program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "leaderboard"
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.30.1"

@@ -1,118 +1,152 @@
 export interface Creator {
-  name: string;
-  address: string;
-  avatarColor: string;
-  initials: string;
+  name: string
+  address: string
+  avatarColor: string
+  initials: string
 }
 
-export interface FeedItem {
-  id: string;
-  creator: Creator;
-  title: string;
-  description: string;
-  tags: string[];
-  likes: number;
-  comments: number;
-  shares: number;
-  bgColor: string;
-  bgColor2: string;
+export interface FeedGame {
+  id: string
+  slug: string
+  name: string
+  description: string
+  creator: Creator
+  tags: string[]
+  playCount: number
+  totalTips: number
+  bgColor: string
+  bgColor2: string
+  // On-chain addresses (localnet/devnet)
+  leaderboardAddress: string
+  tipJarAddress: string
+  rewardMintAddress: string
+  // Reward thresholds for UI display
+  bronzeScore: number
+  silverScore: number
+  goldScore: number
 }
 
 export interface ActivityItem {
-  id: string;
-  title: string;
-  creator: string;
-  timestamp: string;
-  bgColor: string;
+  id: string
+  title: string
+  creator: string
+  timestamp: string
+  bgColor: string
 }
 
 const creators: Creator[] = [
-  { name: "0xsolana", address: "7xKX...mF3q", avatarColor: "#9945FF", initials: "0X" },
-  { name: "cryptovibe", address: "3rPQ...nZ8w", avatarColor: "#14F195", initials: "CV" },
-  { name: "nft.punk", address: "9mWE...kL2s", avatarColor: "#FF6B6B", initials: "NP" },
-  { name: "defi_anon", address: "5tRY...pQ4v", avatarColor: "#FFD93D", initials: "DA" },
-  { name: "sol.maxi", address: "2uIO...jX7b", avatarColor: "#4ECDC4", initials: "SM" },
-  { name: "web3.girl", address: "8pAS...nM9c", avatarColor: "#FF8B94", initials: "WG" },
-];
+  { name: '0xsolana', address: '7xKX...mF3q', avatarColor: '#9945FF', initials: '0X' },
+  { name: 'cryptovibe', address: '3rPQ...nZ8w', avatarColor: '#14F195', initials: 'CV' },
+  { name: 'nft.punk', address: '9mWE...kL2s', avatarColor: '#FF6B6B', initials: 'NP' },
+  { name: 'defi_anon', address: '5tRY...pQ4v', avatarColor: '#FFD93D', initials: 'DA' },
+]
 
-const gradients: [string, string][] = [
-  ["#0a0a0a", "#1a0a2e"],
-  ["#0a0a0a", "#0a1a2e"],
-  ["#0a0a0a", "#1a2e0a"],
-  ["#0a0a0a", "#2e0a1a"],
-  ["#0a0a0a", "#2e1a0a"],
-  ["#0a0a0a", "#0a2e2e"],
-  ["#0d0d0d", "#1a0d1a"],
-  ["#0a0a0a", "#0a0a1a"],
-];
+// Placeholder pubkeys for localnet (replace after anchor build)
+const PLACEHOLDER_LB = '11111111111111111111111111111111'
+const PLACEHOLDER_TJ = '11111111111111111111111111111111'
+const PLACEHOLDER_RM = '11111111111111111111111111111111'
 
-const rawItems = [
-  { title: "Solana Summer '25", description: "The fastest blockchain in the west. 65k TPS and only getting started.", tags: ["solana", "defi", "web3"] },
-  { title: "NFT drop incoming", description: "Minting 1000 generative pieces on-chain. Floor price TBD.", tags: ["nft", "art", "mint"] },
-  { title: "My DeFi portfolio", description: "Up 40% this month. Here's exactly what I'm holding and why.", tags: ["defi", "portfolio", "alpha"] },
-  { title: "Anchor tutorial pt.1", description: "Building my first Solana program. The dev experience is actually insane.", tags: ["dev", "anchor", "solana"] },
-  { title: "Phantom > MetaMask", description: "Switched to Phantom 6 months ago. Here's what I love about it.", tags: ["phantom", "wallet", "ux"] },
-  { title: "Staking rewards 🔥", description: "Earning 7.2% APY staking SOL. Passive income hits different.", tags: ["staking", "passive", "sol"] },
-  { title: "Compressed NFTs", description: "State compression changes everything. 1M NFTs for $50. No cap.", tags: ["cnft", "compression", "solana"] },
-  { title: "On-chain art exhibit", description: "Curating the best generative art living permanently on Solana.", tags: ["art", "nft", "gallery"] },
-  { title: "Helium migration", description: "Moving to Solana was the right call. IOT network is thriving.", tags: ["helium", "depin", "iot"] },
-  { title: "Render Network vibes", description: "GPU rendering on-chain. The future of creative work is decentralized.", tags: ["render", "gpu", "depin"] },
-  { title: "Mango Markets recap", description: "Governance vote passed. New features dropping next week.", tags: ["mango", "dao", "governance"] },
-  { title: "Serum orderbook deep dive", description: "Understanding central limit order books on Solana. Thread.", tags: ["serum", "orderbook", "dex"] },
-  { title: "Solana Mobile Chapter 2", description: "Just unboxed mine. Web3 native phone is actually the move.", tags: ["mobile", "chapter2", "hardware"] },
-  { title: "Jupiter aggregator", description: "Best swap routes, period. Routing through 20+ DEXes simultaneously.", tags: ["jupiter", "dex", "swap"] },
-  { title: "Saga token airdrop", description: "Holding Saga = free tokens. The distribution was surprisingly fair.", tags: ["saga", "airdrop", "mobile"] },
-  { title: "Backpack wallet review", description: "xNFTs are a paradigm shift. Running dApps inside my wallet.", tags: ["backpack", "xnft", "wallet"] },
-  { title: "Drift Protocol", description: "Perpetuals on Solana are finally here and they're smooth.", tags: ["drift", "perps", "trading"] },
-  { title: "Metaplex deep dive", description: "Understanding token standards. Core vs. Token Metadata v3.", tags: ["metaplex", "nft", "standard"] },
-  { title: "Firedancer node", description: "Jump's validator client will change Solana forever. Benchmarks are wild.", tags: ["firedancer", "validator", "infra"] },
-  { title: "Pyth price feeds", description: "On-chain oracle data for 500+ assets. Latency under 400ms.", tags: ["pyth", "oracle", "data"] },
-];
+export const BUILT_IN_GAMES: FeedGame[] = [
+  {
+    id: '1',
+    slug: 'sol-flap',
+    name: 'SolFlap',
+    description: 'Navigate your Solana bird through the blockchain pipes. How many blocks can you clear?',
+    creator: creators[0],
+    tags: ['arcade', 'solana', 'flap'],
+    playCount: 48291,
+    totalTips: 12.4,
+    bgColor: '#000000',
+    bgColor2: '#1a0a2e',
+    leaderboardAddress: PLACEHOLDER_LB,
+    tipJarAddress: PLACEHOLDER_TJ,
+    rewardMintAddress: PLACEHOLDER_RM,
+    bronzeScore: 5,
+    silverScore: 20,
+    goldScore: 50,
+  },
+  {
+    id: '2',
+    slug: 'crypto-breaker',
+    name: 'CryptoBreaker',
+    description: 'Destroy crypto bricks with your wallet paddle. Power-ups unlock on-chain rewards.',
+    creator: creators[1],
+    tags: ['breakout', 'defi', 'retro'],
+    playCount: 31547,
+    totalTips: 8.9,
+    bgColor: '#000000',
+    bgColor2: '#0a1a2e',
+    leaderboardAddress: PLACEHOLDER_LB,
+    tipJarAddress: PLACEHOLDER_TJ,
+    rewardMintAddress: PLACEHOLDER_RM,
+    bronzeScore: 100,
+    silverScore: 500,
+    goldScore: 1500,
+  },
+  {
+    id: '3',
+    slug: 'hash-runner',
+    name: 'HashRunner',
+    description: 'Sprint through the mempool — dodge failed transactions and ride validator waves.',
+    creator: creators[2],
+    tags: ['runner', 'endless', 'mempool'],
+    playCount: 22890,
+    totalTips: 5.3,
+    bgColor: '#000000',
+    bgColor2: '#1a2e0a',
+    leaderboardAddress: PLACEHOLDER_LB,
+    tipJarAddress: PLACEHOLDER_TJ,
+    rewardMintAddress: PLACEHOLDER_RM,
+    bronzeScore: 10,
+    silverScore: 30,
+    goldScore: 60,
+  },
+  {
+    id: '4',
+    slug: 'block-blitz',
+    name: 'BlockBlitz',
+    description: 'Stack blocks faster than a Solana validator. Clear lines, earn tokens, beat the leaderboard.',
+    creator: creators[3],
+    tags: ['puzzle', 'tetris', 'strategy'],
+    playCount: 18643,
+    totalTips: 7.1,
+    bgColor: '#000000',
+    bgColor2: '#2e0a1a',
+    leaderboardAddress: PLACEHOLDER_LB,
+    tipJarAddress: PLACEHOLDER_TJ,
+    rewardMintAddress: PLACEHOLDER_RM,
+    bronzeScore: 200,
+    silverScore: 800,
+    goldScore: 2000,
+  },
+]
 
-export const initialFeedItems: FeedItem[] = rawItems.slice(0, 10).map((item, i) => ({
-  id: `feed-${i}`,
-  creator: creators[i % creators.length],
-  ...item,
-  likes: Math.floor(Math.random() * 9000) + 500,
-  comments: Math.floor(Math.random() * 500) + 20,
-  shares: Math.floor(Math.random() * 200) + 10,
-  bgColor: gradients[i % gradients.length][0],
-  bgColor2: gradients[i % gradients.length][1],
-}));
+export const initialFeedGames: FeedGame[] = [...BUILT_IN_GAMES]
 
-export function generateMoreItems(startIndex: number, count = 5): FeedItem[] {
-  return rawItems.slice(startIndex % rawItems.length, (startIndex % rawItems.length) + count).map((item, i) => ({
-    id: `feed-${startIndex + i}-${Date.now()}`,
-    creator: creators[(startIndex + i) % creators.length],
-    ...item,
-    likes: Math.floor(Math.random() * 9000) + 500,
-    comments: Math.floor(Math.random() * 500) + 20,
-    shares: Math.floor(Math.random() * 200) + 10,
-    bgColor: gradients[(startIndex + i) % gradients.length][0],
-    bgColor2: gradients[(startIndex + i) % gradients.length][1],
-  }));
+export function generateMoreGames(startIndex: number, count = 4): FeedGame[] {
+  return Array.from({ length: count }, (_, i) => ({
+    ...BUILT_IN_GAMES[(startIndex + i) % BUILT_IN_GAMES.length],
+    id: `${startIndex + i + 1}-${Date.now()}`,
+    playCount: Math.floor(Math.random() * 50000) + 5000,
+  }))
 }
 
 export const mockLikedItems: ActivityItem[] = [
-  { id: "l1", title: "Solana Summer '25", creator: "0xsolana", timestamp: "2m ago", bgColor: "#9945FF" },
-  { id: "l2", title: "NFT drop incoming", creator: "nft.punk", timestamp: "1h ago", bgColor: "#FF6B6B" },
-  { id: "l3", title: "Staking rewards 🔥", creator: "sol.maxi", timestamp: "3h ago", bgColor: "#14F195" },
-  { id: "l4", title: "Jupiter aggregator", creator: "defi_anon", timestamp: "1d ago", bgColor: "#FFD93D" },
-  { id: "l5", title: "Firedancer node", creator: "cryptovibe", timestamp: "2d ago", bgColor: "#4ECDC4" },
-  { id: "l6", title: "Backpack wallet review", creator: "web3.girl", timestamp: "3d ago", bgColor: "#FF8B94" },
-  { id: "l7", title: "Pyth price feeds", creator: "0xsolana", timestamp: "5d ago", bgColor: "#9945FF" },
-  { id: "l8", title: "Drift Protocol", creator: "defi_anon", timestamp: "1w ago", bgColor: "#FFD93D" },
-];
+  { id: 'l1', title: 'SolFlap', creator: '0xsolana', timestamp: '2m ago', bgColor: '#9945FF' },
+  { id: 'l2', title: 'CryptoBreaker', creator: 'cryptovibe', timestamp: '1h ago', bgColor: '#14F195' },
+  { id: 'l3', title: 'HashRunner', creator: 'nft.punk', timestamp: '3h ago', bgColor: '#FF6B6B' },
+  { id: 'l4', title: 'BlockBlitz', creator: 'defi_anon', timestamp: '1d ago', bgColor: '#FFD93D' },
+  { id: 'l5', title: 'SolFlap', creator: '0xsolana', timestamp: '2d ago', bgColor: '#9945FF' },
+  { id: 'l6', title: 'CryptoBreaker', creator: 'cryptovibe', timestamp: '4d ago', bgColor: '#14F195' },
+]
 
 export const mockHistoryItems: ActivityItem[] = [
-  { id: "h1", title: "Compressed NFTs", creator: "cryptovibe", timestamp: "just now", bgColor: "#14F195" },
-  { id: "h2", title: "Anchor tutorial pt.1", creator: "0xsolana", timestamp: "5m ago", bgColor: "#9945FF" },
-  { id: "h3", title: "My DeFi portfolio", creator: "defi_anon", timestamp: "12m ago", bgColor: "#FFD93D" },
-  { id: "h4", title: "Phantom > MetaMask", creator: "sol.maxi", timestamp: "30m ago", bgColor: "#4ECDC4" },
-  { id: "h5", title: "Helium migration", creator: "nft.punk", timestamp: "2h ago", bgColor: "#FF6B6B" },
-  { id: "h6", title: "On-chain art exhibit", creator: "web3.girl", timestamp: "4h ago", bgColor: "#FF8B94" },
-  { id: "h7", title: "Mango Markets recap", creator: "cryptovibe", timestamp: "6h ago", bgColor: "#14F195" },
-  { id: "h8", title: "Solana Mobile Chapter 2", creator: "sol.maxi", timestamp: "1d ago", bgColor: "#4ECDC4" },
-  { id: "h9", title: "Serum orderbook deep dive", creator: "defi_anon", timestamp: "2d ago", bgColor: "#FFD93D" },
-  { id: "h10", title: "Metaplex deep dive", creator: "0xsolana", timestamp: "4d ago", bgColor: "#9945FF" },
-];
+  { id: 'h1', title: 'BlockBlitz', creator: 'defi_anon', timestamp: 'just now', bgColor: '#FFD93D' },
+  { id: 'h2', title: 'HashRunner', creator: 'nft.punk', timestamp: '5m ago', bgColor: '#FF6B6B' },
+  { id: 'h3', title: 'SolFlap', creator: '0xsolana', timestamp: '12m ago', bgColor: '#9945FF' },
+  { id: 'h4', title: 'CryptoBreaker', creator: 'cryptovibe', timestamp: '30m ago', bgColor: '#14F195' },
+  { id: 'h5', title: 'BlockBlitz', creator: 'defi_anon', timestamp: '2h ago', bgColor: '#FFD93D' },
+  { id: 'h6', title: 'HashRunner', creator: 'nft.punk', timestamp: '4h ago', bgColor: '#FF6B6B' },
+  { id: 'h7', title: 'SolFlap', creator: '0xsolana', timestamp: '1d ago', bgColor: '#9945FF' },
+  { id: 'h8', title: 'CryptoBreaker', creator: 'cryptovibe', timestamp: '2d ago', bgColor: '#14F195' },
+]

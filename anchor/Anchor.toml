@@ -1,4 +1,5 @@
 [toolchain]
+anchor_version = "0.30.1"
 
 [features]
 resolution = true
@@ -6,6 +7,10 @@ skip-lint = false
 
 [programs.localnet]
 solana_krakow = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+game_registry = "DyQYRqHBVVX1FghxSLPX8VCPvd8JFdBWAMvCFEBVTVb6"
+leaderboard   = "7ytj4MrhqZhzSJLLQNSSVpHB24Tpma2GmQycqXdjhYu6"
+reward_vault  = "2dRKWxJZWKSE32KZ9qgEhHg4Jfq6tZH4KF4ayChtXtmm"
+tip_jar       = "9c2GADAaWZsXcRojw1aWfnZuRgyAWAnrpXS8NNLcbrAN"
 
 [registry]
 url = "https://api.apr.dev"
