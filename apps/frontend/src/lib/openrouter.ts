@@ -59,6 +59,7 @@ export interface ChatMessage {
 
 export async function* streamGameGeneration(
   messages: ChatMessage[],
+  signal?: AbortSignal,
 ): AsyncGenerator<string> {
   const apiKey = import.meta.env.VITE_OPENROUTER_KEY
   if (!apiKey) {
@@ -67,6 +68,7 @@ export async function* streamGameGeneration(
 
   const response = await fetch(OPENROUTER_URL, {
     method: 'POST',
+    signal,
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

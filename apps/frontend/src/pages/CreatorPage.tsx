@@ -1,17 +1,24 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { History, Rocket, Eye } from 'lucide-react'
+import { History, Rocket, Eye, MessageSquare, Code2, GitBranch } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { GameTypeSelector } from '@/components/creator/GameTypeSelector'
 import { CreatorChat } from '@/components/creator/CreatorChat'
 import { CodeEditor } from '@/components/creator/CodeEditor'
 import { GamePreview } from '@/components/creator/GamePreview'
 import { CreatorHistory } from '@/components/creator/CreatorHistory'
+import { VersionTimeline } from '@/components/creator/VersionTimeline'
 import { useCreatorStore } from '@/stores/creatorStore'
 import { useFeedStore } from '@/stores/feedStore'
 import type { FeedGame } from '@/lib/mockData'
+import { cn } from '@/lib/utils'
 
-type CreatorView = 'type-select' | 'chat' | 'code'
+type CreatorView = 'type-select' | 'chat' | 'code' | 'versions'
+
+interface PreviewState {
+  code: string
+  versionLabel?: string
+}
 
 export function CreatorPage() {
   const { publicKey } = useWallet()
@@ -20,22 +27,21 @@ export function CreatorPage() {
   const startNewGame = useCreatorStore((s) => s.startNewGame)
   const setActiveGame = useCreatorStore((s) => s.setActiveGame)
   const markPublished = useCreatorStore((s) => s.markPublished)
-
   const addGame = useFeedStore((s) => s.addGame)
 
   const activeGame = games.find((g) => g.id === activeGameId) ?? null
+  const currentVersion = activeGame?.versions.find((v) => v.id === activeGame.currentVersionId)
 
   const [view, setView] = useState<CreatorView>(
     activeGameId && activeGame ? 'chat' : 'type-select',
   )
-  const [showPreview, setShowPreview] = useState(false)
+  const [preview, setPreview] = useState<PreviewState | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
 
   function handleTypeSelect() {
-    const id = startNewGame()
+    startNewGame()
     setView('chat')
-    void id
   }
 
   function handleNewGame() {
@@ -49,10 +55,23 @@ export function CreatorPage() {
     setShowHistory(false)
   }
 
+  function openPreview(codeOverride?: string) {
+    const code = activeGame?.code ?? ''
+    if (!code && !codeOverride) return
+    if (codeOverride) {
+      const vLabel = activeGame?.versions.find((v) => v.code === codeOverride)?.label
+      setPreview({ code: activeGame?.code ?? '', versionLabel: vLabel })
+      // Store codeOverride via a trick: set preview with the override as the main code
+      setPreview({ code: codeOverride, versionLabel: vLabel })
+    } else {
+      setPreview({ code, versionLabel: currentVersion?.label })
+    }
+  }
+
   function handlePublish() {
     if (!activeGame?.code || !activeGameId) return
     const addr = publicKey?.toBase58() ?? ''
-    const short = addr ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : 'creator'
+    const short = addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : 'AI'
     const feedGame: FeedGame = {
       id: `ai-${activeGameId}`,
       slug: `ai-${activeGameId}`,
@@ -83,34 +102,48 @@ export function CreatorPage() {
   }
 
   const hasCode = !!(activeGame?.code)
+  const versionCount = activeGame?.versions.length ?? 0
+
+  const TABS = [
+    { id: 'chat' as const, icon: MessageSquare, label: 'Chat' },
+    { id: 'code' as const, icon: Code2, label: 'Code' },
+    { id: 'versions' as const, icon: GitBranch, label: `Versions${versionCount > 0 ? ` (${versionCount})` : ''}` },
+  ]
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.25 }}
-      className="h-full relative overflow-hidden"
+      transition={{ duration: 0.2 }}
+      className="h-full relative overflow-hidden flex flex-col"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-light text-muted-foreground uppercase tracking-widest">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] font-light text-muted-foreground/40 uppercase tracking-widest flex-shrink-0">
             AI Creator
           </span>
           {activeGame && view !== 'type-select' && (
             <>
-              <span className="text-muted-foreground/30">/</span>
-              <span className="text-xs font-light text-foreground/70 truncate max-w-[120px]">
+              <span className="text-muted-foreground/20">/</span>
+              <span className="text-xs font-light text-foreground/60 truncate max-w-[120px]">
                 {activeGame.name}
               </span>
+              {currentVersion && (
+                <span className="text-[9px] font-light text-primary/50 flex-shrink-0">
+                  {currentVersion.label}
+                </span>
+              )}
             </>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {hasCode && view !== 'type-select' && (
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {publishSuccess ? (
                 <motion.span
+                  key="success"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
@@ -119,23 +152,27 @@ export function CreatorPage() {
                   Published to Feed!
                 </motion.span>
               ) : (
-                <button
+                <motion.button
+                  key="publish"
                   onClick={handlePublish}
                   disabled={activeGame?.publishedToFeed}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#14F195]/80 bg-[#14F195]/10 hover:bg-[#14F195]/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium text-[#14F195]/70 bg-[#14F195]/8 hover:bg-[#14F195]/15 transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#14F195]/15"
                 >
                   <Rocket size={10} />
-                  {activeGame?.publishedToFeed ? 'Published' : 'Publish to Feed'}
-                </button>
+                  {activeGame?.publishedToFeed ? 'Published' : 'Publish'}
+                </motion.button>
               )}
             </AnimatePresence>
           )}
+
           {games.length > 0 && (
             <button
               onClick={() => setShowHistory((v) => !v)}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                showHistory ? 'bg-primary/20 text-primary' : 'hover:bg-muted/20 text-muted-foreground'
-              }`}
+              className={cn(
+                'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                showHistory ? 'bg-primary/20 text-primary' : 'text-muted-foreground/50 hover:bg-muted/20 hover:text-muted-foreground',
+              )}
+              title="Game library"
             >
               <History size={14} />
             </button>
@@ -143,8 +180,45 @@ export function CreatorPage() {
         </div>
       </div>
 
+      {/* Tab bar — only when a game is active */}
+      {view !== 'type-select' && activeGameId && (
+        <div className="flex items-center px-4 border-b border-border/20 flex-shrink-0 bg-background/50">
+          {TABS.map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className={cn(
+                'relative flex items-center gap-1.5 px-3 py-2 text-[10px] font-light transition-all',
+                view === id ? 'text-foreground' : 'text-muted-foreground/50 hover:text-muted-foreground',
+              )}
+            >
+              <Icon size={11} />
+              {label}
+              {view === id && (
+                <motion.div
+                  layoutId="tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-px bg-primary"
+                  transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                />
+              )}
+            </button>
+          ))}
+
+          {/* Floating preview button in tab bar */}
+          {hasCode && (
+            <button
+              onClick={() => openPreview()}
+              className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-primary hover:bg-primary/10 transition-all"
+            >
+              <Eye size={11} />
+              Preview
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Main content */}
-      <div className="h-[calc(100%-44px)] relative">
+      <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
           {view === 'type-select' && (
             <motion.div
@@ -168,8 +242,7 @@ export function CreatorPage() {
             >
               <CreatorChat
                 gameId={activeGameId}
-                onEditCode={() => setView('code')}
-                onPreview={() => setShowPreview(true)}
+                onPreview={openPreview}
               />
             </motion.div>
           )}
@@ -184,26 +257,30 @@ export function CreatorPage() {
             >
               <CodeEditor
                 gameId={activeGameId}
-                onBack={() => setView('chat')}
-                onPreview={() => setShowPreview(true)}
+                onPreview={openPreview}
+              />
+            </motion.div>
+          )}
+
+          {view === 'versions' && activeGameId && (
+            <motion.div
+              key="versions"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full"
+            >
+              <VersionTimeline
+                gameId={activeGameId}
+                onPreview={(code) => {
+                  const vLabel = activeGame?.versions.find((v) => v.code === code)?.label
+                  setPreview({ code, versionLabel: vLabel })
+                }}
+                onRestored={() => setView('chat')}
               />
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Floating preview button (bottom-right) */}
-        {hasCode && view !== 'type-select' && !showPreview && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            onClick={() => setShowPreview(true)}
-            className="absolute bottom-5 right-5 z-20 flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-primary text-black text-xs font-medium shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all"
-          >
-            <Eye size={13} />
-            Preview
-          </motion.button>
-        )}
 
         {/* History sidebar */}
         <AnimatePresence>
@@ -219,8 +296,12 @@ export function CreatorPage() {
 
       {/* Full-screen preview overlay */}
       <AnimatePresence>
-        {showPreview && activeGame?.code && (
-          <GamePreview code={activeGame.code} onClose={() => setShowPreview(false)} />
+        {preview && (
+          <GamePreview
+            code={preview.code}
+            versionLabel={preview.versionLabel}
+            onClose={() => setPreview(null)}
+          />
         )}
       </AnimatePresence>
     </motion.div>

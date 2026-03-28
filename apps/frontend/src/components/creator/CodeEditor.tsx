@@ -1,92 +1,183 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { motion } from 'motion/react'
-import { ArrowLeft, Eye, Save } from 'lucide-react'
+import { Eye, RotateCcw, Lock } from 'lucide-react'
 import { useCreatorStore } from '@/stores/creatorStore'
+import { cn } from '@/lib/utils'
 
 interface CodeEditorProps {
   gameId: string
-  onBack: () => void
-  onPreview: () => void
+  onPreview: (code?: string) => void
 }
 
-export function CodeEditor({ gameId, onBack, onPreview }: CodeEditorProps) {
+export function CodeEditor({ gameId, onPreview }: CodeEditorProps) {
   const game = useCreatorStore((s) => s.games.find((g) => g.id === gameId))
   const updateCode = useCreatorStore((s) => s.updateCode)
-  const [localCode, setLocalCode] = useState(game?.code ?? '')
-  const [saved, setSaved] = useState(false)
+  const restoreVersion = useCreatorStore((s) => s.restoreVersion)
 
-  function handleSave() {
-    updateCode(gameId, localCode)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
+  const versions = game?.versions ?? []
+  const currentVersionId = game?.currentVersionId
+
+  // Which version is being viewed in the editor (may differ from active)
+  const [viewingVersionId, setViewingVersionId] = useState<string | null>(
+    currentVersionId ?? null,
+  )
+
+  const viewingVersion = versions.find((v) => v.id === viewingVersionId)
+  const isViewingActive = viewingVersionId === currentVersionId
+
+  const [localCode, setLocalCode] = useState(viewingVersion?.code ?? game?.code ?? '')
+  const [isDirty, setIsDirty] = useState(false)
+  const [savedFeedback, setSavedFeedback] = useState(false)
+  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sync when viewed version changes
+  useEffect(() => {
+    const code = viewingVersion?.code ?? game?.code ?? ''
+    setLocalCode(code)
+    setIsDirty(false)
+  }, [viewingVersionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync when active version changes externally (e.g. restore from chat)
+  useEffect(() => {
+    setViewingVersionId(currentVersionId ?? null)
+  }, [currentVersionId])
+
+  function handleChange(value: string) {
+    if (!isViewingActive) return // read-only for non-active versions
+    setLocalCode(value)
+    setIsDirty(value !== (game?.code ?? ''))
+
+    // Auto-save debounce
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current)
+    autoSaveRef.current = setTimeout(() => {
+      updateCode(gameId, value)
+      setIsDirty(false)
+      setSavedFeedback(true)
+      setTimeout(() => setSavedFeedback(false), 1000)
+    }, 800)
+  }
+
+  function handleRestoreToEdit() {
+    if (!viewingVersionId) return
+    restoreVersion(gameId, viewingVersionId)
+    setIsDirty(false)
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className="flex flex-col h-full"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 flex-shrink-0">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-light text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft size={13} />
-          Back to Chat
-        </button>
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 flex-shrink-0 overflow-x-auto no-scrollbar">
+        {/* Version pills */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {versions.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setViewingVersionId(v.id)}
+              className={cn(
+                'px-2.5 py-1 rounded-lg text-[10px] font-light transition-all whitespace-nowrap',
+                viewingVersionId === v.id
+                  ? v.id === currentVersionId
+                    ? 'bg-primary/20 text-primary border border-primary/30'
+                    : 'bg-muted/30 text-foreground border border-border/40'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/15 border border-transparent',
+              )}
+            >
+              {v.label}
+              {v.id === currentVersionId && (
+                <span className="ml-1 text-primary/60">●</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Status + actions */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {!isViewingActive && viewingVersion && (
+            <div className="flex items-center gap-1 text-[9px] font-light text-amber-400/70">
+              <Lock size={9} />
+              <span>Read-only</span>
+            </div>
+          )}
+          {isDirty && (
+            <span className="text-[9px] font-light text-muted-foreground/50">
+              · unsaved
+            </span>
+          )}
+          {savedFeedback && (
+            <span className="text-[9px] font-light text-[#14F195]/70">Saved</span>
+          )}
+
+          {!isViewingActive && viewingVersion && (
+            <button
+              onClick={handleRestoreToEdit}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-light text-primary hover:bg-primary/10 transition-all border border-primary/20"
+            >
+              <RotateCcw size={9} />
+              Restore to edit
+            </button>
+          )}
+
           <button
-            onClick={handleSave}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-light text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-all"
-          >
-            <Save size={11} />
-            {saved ? 'Saved!' : 'Save'}
-          </button>
-          <button
-            onClick={() => {
-              updateCode(gameId, localCode)
-              onPreview()
-            }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-all"
+            onClick={() => onPreview(isViewingActive ? undefined : viewingVersion?.code)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-all border border-primary/20"
           >
             <Eye size={11} />
-            Run Preview
+            {isViewingActive ? 'Preview' : `Preview ${viewingVersion?.label}`}
           </button>
         </div>
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
+        {!isViewingActive && (
+          <div className="absolute inset-x-0 top-0 z-10 px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2">
+            <Lock size={10} className="text-amber-400/70" />
+            <span className="text-[9px] font-light text-amber-400/70">
+              Viewing {viewingVersion?.label} (read-only) — click "Restore to edit" to make changes
+            </span>
+          </div>
+        )}
         <CodeMirror
           value={localCode}
-          onChange={setLocalCode}
+          onChange={handleChange}
           height="100%"
           theme={oneDark}
           extensions={[javascript({ jsx: false })]}
+          readOnly={!isViewingActive}
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,
-            autocompletion: true,
+            autocompletion: isViewingActive,
             bracketMatching: true,
-            closeBrackets: true,
-            indentOnInput: true,
+            closeBrackets: isViewingActive,
+            indentOnInput: isViewingActive,
           }}
-          style={{ height: '100%', fontSize: '11px' }}
+          style={{
+            height: '100%',
+            fontSize: '11px',
+            paddingTop: !isViewingActive ? '28px' : '0',
+          }}
         />
       </div>
 
-      {/* Footer hint */}
-      <div className="px-4 py-2 border-t border-border/20 flex-shrink-0">
-        <p className="text-[9px] font-light text-muted-foreground/30 text-center">
-          Edit the Game class · Save then Run Preview to test changes
+      <div className="px-4 py-1.5 border-t border-border/15 flex-shrink-0 flex items-center justify-between">
+        <p className="text-[8px] font-light text-muted-foreground/25">
+          Auto-saves 800ms after typing
         </p>
+        {localCode && (
+          <p className="text-[8px] font-light text-muted-foreground/25">
+            {(localCode.length / 1000).toFixed(1)}k chars
+          </p>
+        )}
       </div>
     </motion.div>
   )

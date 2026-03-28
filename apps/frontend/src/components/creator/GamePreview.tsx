@@ -5,10 +5,13 @@ import { runGameCode, type GameInstance } from '@/lib/gameRunner'
 
 interface GamePreviewProps {
   code: string
+  codeOverride?: string
+  versionLabel?: string
   onClose: () => void
 }
 
-export function GamePreview({ code, onClose }: GamePreviewProps) {
+export function GamePreview({ code, codeOverride, versionLabel, onClose }: GamePreviewProps) {
+  const runCode = codeOverride ?? code
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const instanceRef = useRef<GameInstance | null>(null)
   const [score, setScore] = useState(0)
@@ -17,9 +20,8 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
   const [runError, setRunError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!code) return
+    if (!runCode) return
 
-    // Destroy previous instance immediately
     if (instanceRef.current) {
       try { instanceRef.current.destroy() } catch {}
       instanceRef.current = null
@@ -33,7 +35,6 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
     let raf1 = 0
     let raf2 = 0
 
-    // Two frames: first lets React flush, second lets the spring animation start
     raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         if (cancelled) return
@@ -43,26 +44,16 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
         canvas.width = window.innerWidth
         canvas.height = window.innerHeight - 44 - 56 - 52
 
-        console.log('[GamePreview] canvas size:', canvas.width, canvas.height)
-        console.log('[GamePreview] code length:', code.length)
-
         const mockSdk = {
           updateScore: (s: number) => setScore(s),
-          endGame: (s: number) => {
-            setFinalScore(s)
-            setGameOver(true)
-          },
+          endGame: (s: number) => { setFinalScore(s); setGameOver(true) },
           updateLives: () => {},
           achievement: () => {},
         }
 
-        const { instance, error } = runGameCode(canvas, mockSdk, code)
-        console.log('[GamePreview] instance:', !!instance, 'error:', error)
-        if (error) {
-          setRunError(error)
-        } else {
-          instanceRef.current = instance
-        }
+        const { instance, error } = runGameCode(canvas, mockSdk, runCode)
+        if (error) setRunError(error)
+        else instanceRef.current = instance
       })
     })
 
@@ -75,11 +66,11 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
         instanceRef.current = null
       }
     }
-  }, [code])
+  }, [runCode])
 
   function handleRestart() {
     const canvas = canvasRef.current
-    if (!canvas || !code) return
+    if (!canvas || !runCode) return
     if (instanceRef.current) {
       try { instanceRef.current.destroy() } catch {}
       instanceRef.current = null
@@ -87,20 +78,15 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
     setScore(0)
     setGameOver(false)
     setRunError(null)
-
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight - 44 - 56 - 52
-
     const mockSdk = {
       updateScore: (s: number) => setScore(s),
-      endGame: (s: number) => {
-        setFinalScore(s)
-        setGameOver(true)
-      },
+      endGame: (s: number) => { setFinalScore(s); setGameOver(true) },
       updateLives: () => {},
       achievement: () => {},
     }
-    const { instance, error } = runGameCode(canvas, mockSdk, code)
+    const { instance, error } = runGameCode(canvas, mockSdk, runCode)
     if (error) setRunError(error)
     else instanceRef.current = instance
   }
@@ -114,12 +100,18 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
       className="fixed inset-x-0 top-11 bottom-14 z-40 bg-black flex flex-col"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-light text-white/50 uppercase tracking-widest">Preview</span>
-          <div className="w-px h-3 bg-white/20" />
+          <span className="text-xs font-light text-white/40 uppercase tracking-widest">Preview</span>
+          {versionLabel && (
+            <>
+              <span className="text-white/20">·</span>
+              <span className="text-[10px] font-light text-primary/70">{versionLabel}</span>
+            </>
+          )}
+          <span className="text-white/20">·</span>
           <span className="text-xs font-light text-primary">
-            Score: {gameOver ? finalScore : score}
+            {gameOver ? `Final: ${finalScore}` : `Score: ${score}`}
           </span>
         </div>
         <button
@@ -141,15 +133,12 @@ export function GamePreview({ code, onClose }: GamePreviewProps) {
               <p className="text-sm font-medium text-red-400">Runtime Error</p>
               <p className="text-xs font-light text-white/50 break-all">{runError}</p>
             </div>
-            <p className="text-xs text-white/30 font-light">
-              Ask AI to fix the error or edit the code manually
-            </p>
+            <p className="text-xs text-white/30 font-light">Ask AI to fix the error or edit the code manually</p>
           </div>
         ) : (
           <canvas ref={canvasRef} className="w-full h-full block" style={{ touchAction: 'none' }} />
         )}
 
-        {/* Game over overlay */}
         <AnimatePresence>
           {gameOver && !runError && (
             <motion.div
