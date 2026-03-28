@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+apps/frontend/dist/
+apps/frontend/.vite/
+anchor/target/
+anchor/.anchor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+apps/frontend/.env
+apps/frontend/.env.local
+apps/frontend/.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude
+.claude/
+
+# Solana / Anchor
+anchor/test-ledger/
+**/*.so
+**/*.keypair.json
+.anchor/
