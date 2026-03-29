@@ -114,6 +114,69 @@ export const TOOL_DEFS: ToolDefinition[] = [
       },
     },
   },
+  // ─── Solana Integration Tools ──────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'add_payment_gate',
+      description: 'Add a SOL payment gate — players must pay before playing. Injects `await sdk.requestPayment(amount)` into game constructor.',
+      parameters: {
+        type: 'object',
+        properties: {
+          amount_sol: { type: 'number', description: 'Amount in SOL (e.g. 0.1)' },
+          recipient: { type: 'string', description: 'Recipient wallet address (optional)' },
+        },
+        required: ['amount_sol'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_shop_item',
+      description: 'Add an in-game shop item purchasable with SOL. Call multiple times for multiple items.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Item name e.g. "Diamond Sword"' },
+          description: { type: 'string', description: 'Item description' },
+          price_sol: { type: 'number', description: 'Price in SOL (e.g. 0.05)' },
+          category: { type: 'string', enum: ['weapon', 'armor', 'powerup', 'cosmetic', 'other'], description: 'Item category' },
+        },
+        required: ['name', 'price_sol'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_nft_reward',
+      description: 'Add an NFT minting reward at a specific game event',
+      parameters: {
+        type: 'object',
+        properties: {
+          trigger: { type: 'string', enum: ['level_complete', 'high_score', 'achievement', 'boss_kill'], description: 'When to offer the NFT mint' },
+          nft_name: { type: 'string', description: 'NFT name e.g. "Level 3 Conqueror"' },
+          nft_description: { type: 'string', description: 'NFT description' },
+        },
+        required: ['trigger', 'nft_name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_leaderboard',
+      description: 'Add an on-chain leaderboard to the game',
+      parameters: {
+        type: 'object',
+        properties: {
+          position: { type: 'string', enum: ['endgame', 'pause_menu', 'both'], description: 'Where to show the leaderboard' },
+        },
+        required: ['position'],
+      },
+    },
+  },
 ]
 
 // ─── Tool Handlers ────────────────────────────────────────────────────────────
@@ -228,6 +291,77 @@ export async function executeTool(
       const name = (args.name as string | undefined) ?? 'AI Game'
       emit({ type: 'coding', data: { message: 'Finalizing game code...' } })
       return { result: { success: true }, done: true, code, name }
+    }
+
+    // ─── Solana Integration Tools ──────────────────────────────────────────────
+
+    case 'add_payment_gate': {
+      const amountSol = args.amount_sol as number
+      const recipient = args.recipient as string | undefined
+      const gameId = args.gameId as string
+      const structureId = generateId()
+      db.prepare(`INSERT INTO game_structures (id, game_id, type, name, data, created_at)
+        VALUES (?, ?, 'payment_gate', 'Payment Gate', ?, ?)`).run(
+        structureId, gameId, JSON.stringify({ amountSol, recipient }), Date.now()
+      )
+      emit({ type: 'agent_step', data: { message: `Payment gate: ${amountSol} SOL`, icon: '💰', step: 'solana' } })
+      return {
+        result: {
+          instruction: `Add this to the Game constructor (before game starts):
+\`\`\`javascript
+this._paid = false
+sdk.requestPayment(${amountSol}${recipient ? `, '${recipient}'` : ''}).then(() => {
+  this._paid = true
+  this.ready = true
+}).catch(() => {})
+\`\`\`
+In the update loop, check \`if (!this._paid) return\` to block gameplay until payment.`,
+        },
+      }
+    }
+
+    case 'add_shop_item': {
+      const { gameId, name, description = '', price_sol, category = 'other' } = args as {
+        gameId: string; name: string; description?: string; price_sol: number; category?: string
+      }
+      const itemId = generateId()
+      db.prepare(`INSERT INTO game_shop_items (id, game_id, name, description, price_lamports, category)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(itemId, gameId, name, description, Math.round(price_sol * 1e9), category)
+      emit({ type: 'agent_step', data: { message: `Shop item: ${name} (${price_sol} SOL)`, icon: '🛒', step: 'solana' } })
+      return {
+        result: {
+          itemId,
+          instruction: `Shop item "${name}" registered. Use sdk.showShop([{ id: '${itemId}', name: '${name}', description: '${description}', priceSol: ${price_sol}, category: '${category}' }])`,
+        },
+      }
+    }
+
+    case 'add_nft_reward': {
+      const { gameId, trigger, nft_name, nft_description = '' } = args as {
+        gameId: string; trigger: string; nft_name: string; nft_description?: string
+      }
+      const structureId = generateId()
+      db.prepare(`INSERT INTO game_structures (id, game_id, type, name, data, created_at)
+        VALUES (?, ?, 'nft_reward', ?, ?, ?)`).run(structureId, gameId, nft_name, JSON.stringify({ trigger }), Date.now())
+      emit({ type: 'agent_step', data: { message: `NFT reward: ${nft_name} on ${trigger}`, icon: '✨', step: 'solana' } })
+      return {
+        result: {
+          instruction: `At ${trigger}: sdk.mintNFT({ name: '${nft_name}', description: '${nft_description}', image: '' })`,
+        },
+      }
+    }
+
+    case 'add_leaderboard': {
+      const { gameId, position } = args as { gameId: string; position: string }
+      const structureId = generateId()
+      db.prepare(`INSERT INTO game_structures (id, game_id, type, name, data, created_at)
+        VALUES (?, ?, 'leaderboard', 'Leaderboard', ?, ?)`).run(structureId, gameId, JSON.stringify({ position }), Date.now())
+      emit({ type: 'agent_step', data: { message: `Leaderboard: ${position}`, icon: '🏆', step: 'solana' } })
+      return {
+        result: {
+          instruction: `At ${position}: sdk.submitScore(this.score).then(() => sdk.showLeaderboard())`,
+        },
+      }
     }
 
     default:

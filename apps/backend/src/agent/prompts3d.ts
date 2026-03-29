@@ -447,5 +447,80 @@ class Game3D {
 - No TypeScript, no JSX, no modules
 - Use string concatenation for URLs, not template literals at module scope
 
+## Solana Blockchain Integration
+
+The game SDK includes blockchain methods for payments, shops, NFTs, and leaderboards.
+These methods are async — they show overlay modals to the player and resolve when the player completes the action.
+
+### Available SDK Methods
+
+- \`await sdk.requestPayment(amountSol)\` — Shows payment modal. Returns tx signature string. Use at game start for pay-to-play gates. **Must be called BEFORE game loop starts.**
+- \`await sdk.requestPayment(amountSol, recipientAddress)\` — Same but sends SOL to specific address.
+- \`await sdk.showShop(items)\` — Shows item shop overlay. \`items\` is array of \`{ id, name, description, priceSol, category?, image? }\`. Returns array of \`{ itemId, txSig }\` for purchased items.
+- \`await sdk.mintNFT({ name, description, image })\` — Shows NFT mint modal. Returns mint address string. Use on achievements/level completions.
+- \`await sdk.getLeaderboard()\` — Returns array of \`{ rank, player, score, timestamp }\` from on-chain data.
+- \`await sdk.submitScore(score)\` — Submits score on-chain (commit-reveal). Returns tx signature.
+- \`sdk.showLeaderboard()\` — Shows leaderboard overlay (fire-and-forget, no return value).
+
+### Available Solana Agent Tools
+
+- **add_payment_gate** — Register a payment gate (amount in SOL). Then integrate \`sdk.requestPayment()\` into game code.
+- **add_shop_item** — Register a shop item (name, price, category). Then use \`sdk.showShop()\` in game code.
+- **add_nft_reward** — Register an NFT reward (trigger event, name). Then use \`sdk.mintNFT()\` in game code.
+- **add_leaderboard** — Register leaderboard integration. Then use \`sdk.submitScore()\` + \`sdk.showLeaderboard()\` in game code.
+
+### IMPORTANT Rules for Solana Integration
+
+1. All sdk blockchain methods are **async** — always use \`await\` or \`.then()\`
+2. Payment gates MUST be checked **before** the game loop starts — wrap game init in a method that runs after payment
+3. Shop/NFT/Leaderboard calls **pause** the game — the overlay covers the viewport. Account for this in your game loop.
+4. Always handle rejected promises (user can cancel any blockchain action)
+5. The \`sdk\` object is passed to the constructor — use \`this.sdk\` to access it
+
+### Payment Gate Pattern (CRITICAL — follow exactly)
+\`\`\`javascript
+class Game3D {
+  constructor(container, sdk) {
+    this.sdk = sdk
+    this.container = container
+    this._paid = false
+    // Set up renderer and basic scene, but DON'T start gameplay yet
+    this._setupRenderer()
+    this._showPaymentScreen()
+    // Request payment — game starts only after payment
+    sdk.requestPayment(0.1).then(() => {
+      this._paid = true
+      this._initGameplay() // Build level, spawn enemies, etc.
+    }).catch(() => {
+      this._showMessage('Payment required to play this game')
+    })
+  }
+  start() {
+    const loop = () => {
+      this._raf = requestAnimationFrame(loop)
+      if (!this._paid) { this._drawWaiting(); return }
+      // Normal game loop...
+    }
+    this._raf = requestAnimationFrame(loop)
+  }
+}
+\`\`\`
+
+### Shop Pattern
+\`\`\`javascript
+// Open shop (e.g. when player presses B or enters shop zone)
+async _openShop() {
+  const items = [
+    { id: 'sword', name: 'Diamond Sword', description: '+50 damage', priceSol: 0.05, category: 'weapon' },
+    { id: 'shield', name: 'Iron Shield', description: '+30 defense', priceSol: 0.03, category: 'armor' },
+  ]
+  const purchased = await this.sdk.showShop(items)
+  purchased.forEach(p => {
+    if (p.itemId === 'sword') this.player.damage += 50
+    if (p.itemId === 'shield') this.player.defense += 30
+  })
+}
+\`\`\`
+
 Write a complete, working Game3D class. Implement ALL methods fully — no placeholder comments.`
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls }    from 'three/addons/controls/OrbitControls.js'
 import { TransformControls } from 'three/addons/controls/TransformControls.js'
@@ -8,6 +8,7 @@ import { ShaderPass }       from 'three/addons/postprocessing/ShaderPass.js'
 import { OutlinePass }      from 'three/addons/postprocessing/OutlinePass.js'
 import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js'
 import type { Scene3D, SceneObject } from '@/stores/creatorStore'
+import { SolanaOverlay, type SolanaOverlayState } from '@/components/solana/SolanaOverlay'
 
 interface Viewport3DProps {
   scene?: Scene3D
@@ -85,6 +86,7 @@ export function Viewport3D({
   const gameRef              = useRef<GameInstance | null>(null)
   const playingRef           = useRef(false)
   const isDraggingRef        = useRef(false)
+  const [overlayState, setOverlayState] = useState<SolanaOverlayState>(null)
 
   // ─── Init renderer + composer + TransformControls ─────────────────────────
   useEffect(() => {
@@ -483,7 +485,26 @@ export function Viewport3D({
       try {
         gameDiv.innerHTML = ''
         const factory = new Function('container', 'sdk', `'use strict'\n${code}\nif(typeof Game3D==='undefined')throw new Error('Game3D class not found')\nreturn new Game3D(container, sdk)`)
-        const sdk = { updateScore: () => {}, endGame: () => {}, updateLives: () => {}, achievement: () => {} }
+        const sdk = {
+          updateScore: () => {},
+          endGame: () => {},
+          updateLives: () => {},
+          achievement: () => {},
+          // Solana methods — return promises that are resolved by the overlay
+          requestPayment: (amountSol: number, recipient?: string) =>
+            new Promise<string>((resolve, reject) =>
+              setOverlayState({ type: 'payment', amountSol, recipient, resolve, reject })),
+          showShop: (items: import('@/lib/sdk/types').ShopItem[]) =>
+            new Promise<import('@/lib/sdk/types').ShopPurchase[]>((resolve, reject) =>
+              setOverlayState({ type: 'shop', items, resolve, reject })),
+          mintNFT: (metadata: import('@/lib/sdk/types').NFTMetadata) =>
+            new Promise<string>((resolve, reject) =>
+              setOverlayState({ type: 'mint', metadata, resolve, reject })),
+          getLeaderboard: () => Promise.resolve([]),
+          submitScore: () => Promise.resolve(''),
+          showLeaderboard: () =>
+            setOverlayState({ type: 'leaderboard', entries: [], loading: false }),
+        }
         const inst = factory(gameDiv, sdk) as GameInstance
         inst.start?.()
         gameRef.current = inst
@@ -515,6 +536,9 @@ export function Viewport3D({
     >
       <div ref={editorDivRef} style={{ position: 'absolute', inset: 0 }} />
       <div ref={gameDivRef} style={{ position: 'absolute', inset: 0, display: 'none', zIndex: 10 }} />
+
+      {/* Solana overlay (payment gates, shops, NFT mints, leaderboards) */}
+      <SolanaOverlay state={overlayState} onDismiss={() => setOverlayState(null)} />
 
       {/* Empty hint */}
       {!scene && !playing && (

@@ -42,4 +42,36 @@ CREATE TABLE IF NOT EXISTS conversations (
   created_at INTEGER NOT NULL,
   FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS game_payments (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL,
+  player_wallet TEXT NOT NULL,
+  amount_lamports INTEGER NOT NULL,
+  tx_sig TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS game_shop_items (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  price_lamports INTEGER NOT NULL,
+  image_url TEXT,
+  category TEXT,
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS game_purchases (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL,
+  player_wallet TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  tx_sig TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+  FOREIGN KEY (item_id) REFERENCES game_shop_items(id) ON DELETE CASCADE
+);
 `

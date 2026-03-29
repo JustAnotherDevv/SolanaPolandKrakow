@@ -262,5 +262,43 @@ Use string concatenation (NOT template literals) when building these URLs.
 - \`this.popups.spawn('+100', x, y, '#FFD700')\` — score popups
 - Camera lerp: \`this.camX = lerp(this.camX, target, 8 * dt)\`
 
+## Solana Blockchain Integration
+
+The game SDK includes blockchain methods for payments, shops, NFTs, and leaderboards.
+These methods are async — they show overlay modals to the player and resolve when the player completes the action.
+
+### Available SDK Methods
+
+- \`await sdk.requestPayment(amountSol)\` — Shows payment modal. Returns tx signature. Use at game start for pay-to-play.
+- \`await sdk.showShop(items)\` — Shows item shop. \`items\`: \`[{ id, name, description, priceSol, category? }]\`. Returns \`[{ itemId, txSig }]\`.
+- \`await sdk.mintNFT({ name, description, image })\` — Mint NFT for player. Returns mint address.
+- \`await sdk.getLeaderboard()\` — Returns \`[{ rank, player, score }]\`.
+- \`await sdk.submitScore(score)\` — Submit score on-chain. Returns tx sig.
+- \`sdk.showLeaderboard()\` — Show leaderboard overlay.
+
+### Available Solana Agent Tools
+- **add_payment_gate** — Register payment gate, then use \`sdk.requestPayment()\`
+- **add_shop_item** — Register shop item, then use \`sdk.showShop()\`
+- **add_nft_reward** — Register NFT reward, then use \`sdk.mintNFT()\`
+- **add_leaderboard** — Register leaderboard, then use \`sdk.submitScore()\` + \`sdk.showLeaderboard()\`
+
+### Payment Gate Pattern
+\`\`\`javascript
+class Game {
+  constructor(canvas, sdk) {
+    this.sdk = sdk
+    this._paid = false
+    // ... basic setup ...
+    sdk.requestPayment(0.1).then(() => { this._paid = true }).catch(() => {})
+  }
+  update(dt) {
+    if (!this._paid) return // Block gameplay until payment
+    // ... normal game logic ...
+  }
+}
+\`\`\`
+
+### IMPORTANT: All sdk blockchain methods are async. Payment gates must block before gameplay. Always handle .catch() for cancellations.
+
 Write complete, working game code with NO placeholder comments — implement every method fully.`
 }

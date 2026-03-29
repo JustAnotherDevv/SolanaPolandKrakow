@@ -1,8 +1,17 @@
+import type { ShopItem, ShopPurchase, NFTMetadata, LeaderboardEntry } from './sdk/types'
+
 export interface GameSDKLike {
   updateScore(score: number): void
   endGame(finalScore: number): void
   updateLives?(lives: number): void
   achievement?(id: string, name: string): void
+  // Solana methods
+  requestPayment?(amountSol: number, recipient?: string): Promise<string>
+  showShop?(items: ShopItem[]): Promise<ShopPurchase[]>
+  mintNFT?(metadata: NFTMetadata): Promise<string>
+  getLeaderboard?(): Promise<LeaderboardEntry[]>
+  submitScore?(score: number): Promise<string>
+  showLeaderboard?(): void
 }
 
 export interface GameInstance {

@@ -1,4 +1,4 @@
-import type { GameSDKCallbacks } from './types'
+import type { GameSDKCallbacks, ShopItem, ShopPurchase, NFTMetadata, LeaderboardEntry } from './types'
 
 /**
  * GameSDK — bridge between Canvas game classes and the React/Solana layer.
@@ -43,6 +43,43 @@ export class GameSDK {
   /** Game calls this when an achievement is unlocked */
   achievement(id: string, name: string): void {
     this.callbacks.onAchievement(id, name)
+  }
+
+  // ─── Solana Methods ──────────────────────────────────────────────────────────
+
+  /** Show payment modal — returns tx signature on success */
+  async requestPayment(amountSol: number, recipient?: string): Promise<string> {
+    if (!this.callbacks.onRequestPayment) throw new Error('Payments not available')
+    return this.callbacks.onRequestPayment(amountSol, recipient)
+  }
+
+  /** Show item shop overlay — returns array of purchased items */
+  async showShop(items: ShopItem[]): Promise<ShopPurchase[]> {
+    if (!this.callbacks.onShowShop) throw new Error('Shop not available')
+    return this.callbacks.onShowShop(items)
+  }
+
+  /** Mint an NFT for the player — returns mint address */
+  async mintNFT(metadata: NFTMetadata): Promise<string> {
+    if (!this.callbacks.onMintNFT) throw new Error('NFT minting not available')
+    return this.callbacks.onMintNFT(metadata)
+  }
+
+  /** Fetch on-chain leaderboard entries */
+  async getLeaderboard(): Promise<LeaderboardEntry[]> {
+    if (!this.callbacks.onGetLeaderboard) return []
+    return this.callbacks.onGetLeaderboard(this._gameId)
+  }
+
+  /** Submit score on-chain (commit-reveal) — returns tx signature */
+  async submitScore(score: number): Promise<string> {
+    if (!this.callbacks.onSubmitScore) throw new Error('Score submission not available')
+    return this.callbacks.onSubmitScore(score)
+  }
+
+  /** Show leaderboard overlay (fire-and-forget) */
+  showLeaderboard(): void {
+    this.callbacks.onShowLeaderboard?.()
   }
 
   get score(): number {

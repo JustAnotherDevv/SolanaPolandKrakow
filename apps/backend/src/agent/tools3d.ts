@@ -223,6 +223,69 @@ export const TOOL_DEFS_3D: ToolDefinition[] = [
       },
     },
   },
+  // ─── Solana Integration Tools ──────────────────────────────────────────────
+  {
+    type: 'function',
+    function: {
+      name: 'add_payment_gate',
+      description: 'Add a SOL payment gate — players must pay before playing. Injects `await sdk.requestPayment(amount)` into game constructor.',
+      parameters: {
+        type: 'object',
+        properties: {
+          amount_sol: { type: 'number', description: 'Amount in SOL (e.g. 0.1)' },
+          recipient: { type: 'string', description: 'Recipient wallet address (optional, defaults to game creator)' },
+        },
+        required: ['amount_sol'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_shop_item',
+      description: 'Add an in-game shop item purchasable with SOL. Call multiple times for multiple items.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Item name e.g. "Diamond Sword"' },
+          description: { type: 'string', description: 'Item description' },
+          price_sol: { type: 'number', description: 'Price in SOL (e.g. 0.05)' },
+          category: { type: 'string', enum: ['weapon', 'armor', 'powerup', 'cosmetic', 'other'], description: 'Item category' },
+        },
+        required: ['name', 'price_sol'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_nft_reward',
+      description: 'Add an NFT minting reward at a specific game event (level complete, achievement, high score)',
+      parameters: {
+        type: 'object',
+        properties: {
+          trigger: { type: 'string', enum: ['level_complete', 'high_score', 'achievement', 'boss_kill'], description: 'When to offer the NFT mint' },
+          nft_name: { type: 'string', description: 'NFT name e.g. "Level 3 Conqueror"' },
+          nft_description: { type: 'string', description: 'NFT description' },
+        },
+        required: ['trigger', 'nft_name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_leaderboard',
+      description: 'Add an on-chain leaderboard to the game. Shows top scores and allows score submission.',
+      parameters: {
+        type: 'object',
+        properties: {
+          position: { type: 'string', enum: ['endgame', 'pause_menu', 'both'], description: 'Where to show the leaderboard' },
+        },
+        required: ['position'],
+      },
+    },
+  },
 ]
 
 // ─── Tool Handlers ────────────────────────────────────────────────────────────
@@ -332,6 +395,123 @@ export async function executeTool3D(
       clearScene(gameId)
       emit({ type: 'coding', data: { message: 'Finalizing 3D game code...' } })
       return { result: { success: true }, done: true, code, name }
+    }
+
+    // ─── Solana Integration Tools ──────────────────────────────────────────────
+
+    case 'add_payment_gate': {
+      const amountSol = args.amount_sol as number
+      const recipient = args.recipient as string | undefined
+      const gameId = args.gameId as string
+      // Save to game_structures for reference
+      const structureId = generateId()
+      db.prepare(`INSERT INTO game_structures (id, game_id, type, name, data, created_at)
+        VALUES (?, ?, 'payment_gate', 'Payment Gate', ?, ?)`).run(
+        structureId, gameId, JSON.stringify({ amountSol, recipient }), Date.now()
+      )
+      emit({ type: 'agent_step', data: { message: `Payment gate: ${amountSol} SOL`, icon: '💰', step: 'solana' } })
+      emit({ type: 'structure', data: { structureId, type: 'payment_gate', name: `${amountSol} SOL Gate`, data: { amountSol, recipient } } })
+      return {
+        result: {
+          instruction: `Add this to the VERY START of the Game3D constructor (before any game setup):
+\`\`\`javascript
+// Payment gate — must be awaited before game starts
+this._paid = false
+sdk.requestPayment(${amountSol}${recipient ? `, '${recipient}'` : ''}).then(() => {
+  this._paid = true
+  this._startGameplay()
+}).catch(() => {
+  // Payment cancelled — show message
+  this._showMessage('Payment required to play')
+})
+\`\`\`
+Move all game initialization into a \`_startGameplay()\` method that only runs after payment.`,
+        },
+      }
+    }
+
+    case 'add_shop_item': {
+      const { gameId, name, description = '', price_sol, category = 'other' } = args as {
+        gameId: string; name: string; description?: string; price_sol: number; category?: string
+      }
+      const itemId = generateId()
+      const lamports = Math.round(price_sol * 1e9)
+      db.prepare(`INSERT INTO game_shop_items (id, game_id, name, description, price_lamports, category)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(itemId, gameId, name, description, lamports, category)
+      emit({ type: 'agent_step', data: { message: `Shop item: ${name} (${price_sol} SOL)`, icon: '🛒', step: 'solana' } })
+      emit({ type: 'structure', data: { structureId: itemId, type: 'shop_item', name, data: { priceSol: price_sol, category } } })
+      return {
+        result: {
+          itemId,
+          instruction: `Shop item "${name}" registered (${price_sol} SOL). To show the shop in-game, call:
+\`\`\`javascript
+const purchases = await sdk.showShop([
+  { id: '${itemId}', name: '${name}', description: '${description}', priceSol: ${price_sol}, category: '${category}' }
+  // ... add more items here
+])
+// purchases is an array of { itemId, txSig } for each bought item
+\`\`\``,
+        },
+      }
+    }
+
+    case 'add_nft_reward': {
+      const { gameId, trigger, nft_name, nft_description = '' } = args as {
+        gameId: string; trigger: string; nft_name: string; nft_description?: string
+      }
+      const structureId = generateId()
+      db.prepare(`INSERT INTO game_structures (id, game_id, type, name, data, created_at)
+        VALUES (?, ?, 'nft_reward', ?, ?, ?)`).run(
+        structureId, gameId, nft_name, JSON.stringify({ trigger, nft_name, nft_description }), Date.now()
+      )
+      emit({ type: 'agent_step', data: { message: `NFT reward: ${nft_name} on ${trigger}`, icon: '✨', step: 'solana' } })
+      emit({ type: 'structure', data: { structureId, type: 'nft_reward', name: nft_name, data: { trigger } } })
+      return {
+        result: {
+          instruction: `At the ${trigger} event, add:
+\`\`\`javascript
+sdk.mintNFT({
+  name: '${nft_name}',
+  description: '${nft_description || 'Achievement unlocked!'}',
+  image: '', // optional image URL
+}).then(mintAddr => {
+  console.log('NFT minted:', mintAddr)
+}).catch(() => {
+  // User skipped minting
+})
+\`\`\``,
+        },
+      }
+    }
+
+    case 'add_leaderboard': {
+      const { gameId, position } = args as { gameId: string; position: string }
+      const structureId = generateId()
+      db.prepare(`INSERT INTO game_structures (id, game_id, type, name, data, created_at)
+        VALUES (?, ?, 'leaderboard', 'Leaderboard', ?, ?)`).run(
+        structureId, gameId, JSON.stringify({ position }), Date.now()
+      )
+      emit({ type: 'agent_step', data: { message: `Leaderboard: ${position}`, icon: '🏆', step: 'solana' } })
+      emit({ type: 'structure', data: { structureId, type: 'leaderboard', name: 'On-Chain Leaderboard', data: { position } } })
+      const endgameCode = `
+// Submit score and show leaderboard at game end
+sdk.submitScore(this.score).then(() => {
+  sdk.showLeaderboard()
+}).catch(() => {
+  sdk.showLeaderboard() // show anyway even if submit fails
+})`
+      const pauseCode = `
+// Show leaderboard (call this from pause menu)
+sdk.showLeaderboard()`
+      return {
+        result: {
+          instruction: position === 'both'
+            ? `Add this in _checkWinLose / endGame handler:\n\`\`\`javascript${endgameCode}\n\`\`\`\nAnd add a leaderboard button in pause menu:\n\`\`\`javascript${pauseCode}\n\`\`\``
+            : position === 'endgame'
+              ? `Add this in _checkWinLose / endGame handler:\n\`\`\`javascript${endgameCode}\n\`\`\``
+              : `Add a leaderboard button in pause menu:\n\`\`\`javascript${pauseCode}\n\`\`\``,
+        },
+      }
     }
 
     default:
