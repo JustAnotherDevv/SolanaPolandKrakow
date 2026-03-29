@@ -87,6 +87,9 @@ export function Editor3D({ gameId }: Editor3DProps) {
   const addSceneObject     = useCreatorStore((s) => s.addSceneObject)
   const removeSceneObject  = useCreatorStore((s) => s.removeSceneObject)
   const duplicateSceneObject = useCreatorStore((s) => s.duplicateSceneObject)
+  const updateCode         = useCreatorStore((s) => s.updateCode)
+  const updateName         = useCreatorStore((s) => s.updateName)
+  const updateScene        = useCreatorStore((s) => s.updateScene)
   const agentStream        = useAgentStream(gameId)
 
   const [playing, setPlaying]             = useState(false)
@@ -178,7 +181,16 @@ export function Editor3D({ gameId }: Editor3DProps) {
   function handleTemplateSelect(template: GameTemplate3D) {
     setSidebarOpen(true)
     setSidebarTab('chat')
-    agentStream.send(template.prompt)
+    if (template.code) {
+      // Pre-built: load instantly, no AI prompt
+      updateCode(gameId, template.code)
+      updateName(gameId, template.name)
+      if (template.scene) updateScene(gameId, template.scene)
+    } else if (template.id !== 'blank' && template.prompt) {
+      // AI-generated template
+      agentStream.send(template.prompt)
+    }
+    // blank: just opens chat
   }
 
   function handleCustom() {
@@ -344,7 +356,10 @@ export function Editor3D({ gameId }: Editor3DProps) {
                   <OutputLog steps={agentStream.steps} assets={agentStream.assets} streaming={agentStream.streaming} />
                 )}
                 {sidebarTab === 'chat' && (
-                  <CreatorChat gameId={gameId} onPreview={() => {}} />
+                  <CreatorChat gameId={gameId} onPreview={(code) => {
+                    if (code) updateCode(gameId, code)
+                    if (game?.code || code) handlePlay()
+                  }} />
                 )}
               </div>
             </motion.div>

@@ -116,6 +116,7 @@ export function CreatorPage() {
   const versionCount = activeGame?.versions.length ?? 0
 
   const is3D = activeGame?.type === '3d'
+  const isFullscreenEditor = is3D && view === 'editor3d'
 
   const TABS = is3D
     ? [
@@ -135,8 +136,8 @@ export function CreatorPage() {
       transition={{ duration: 0.2 }}
       className="h-full relative overflow-hidden flex flex-col"
     >
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 flex-shrink-0">
+      {/* Top bar — hidden for fullscreen 3D editor */}
+      {!isFullscreenEditor && <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[10px] font-light text-muted-foreground/40 uppercase tracking-widest flex-shrink-0">
             AI Creator
@@ -196,10 +197,10 @@ export function CreatorPage() {
             </button>
           )}
         </div>
-      </div>
+      </div>}
 
-      {/* Tab bar — only when a game is active */}
-      {view !== 'type-select' && activeGameId && (
+      {/* Tab bar — only when a game is active, hidden for fullscreen 3D editor */}
+      {!isFullscreenEditor && view !== 'type-select' && activeGameId && (
         <div className="flex items-center px-4 border-b border-border/20 flex-shrink-0 bg-background/50">
           {TABS.map(({ id, icon: Icon, label }) => (
             <button
