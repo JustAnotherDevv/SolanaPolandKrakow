@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState, useCallback } from 'react'
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { History, Rocket } from 'lucide-react'
+import { History, Rocket, Droplets } from 'lucide-react'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { cn } from "@/lib/utils";
 import { useCreatorStore } from '@/stores/creatorStore'
 import { useFeedStore } from '@/stores/feedStore'
@@ -141,6 +142,68 @@ function CreatorControls() {
   )
 }
 
+function FaucetButton() {
+  const { publicKey, connected } = useWallet()
+  const { connection } = useConnection()
+  const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [balance, setBalance] = useState<number | null>(null)
+
+  const fetchBalance = useCallback(async () => {
+    if (!publicKey) return
+    try {
+      const bal = await connection.getBalance(publicKey)
+      setBalance(bal / LAMPORTS_PER_SOL)
+    } catch {}
+  }, [publicKey, connection])
+
+  // Fetch balance on first render when connected
+  useState(() => { if (connected) fetchBalance() })
+
+  async function handleAirdrop() {
+    if (!publicKey) return
+    setState('loading')
+    try {
+      const sig = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL)
+      await connection.confirmTransaction(sig, 'confirmed')
+      setState('success')
+      await fetchBalance()
+      setTimeout(() => setState('idle'), 2000)
+    } catch (e) {
+      console.error('Airdrop failed:', e)
+      setState('error')
+      setTimeout(() => setState('idle'), 2000)
+    }
+  }
+
+  if (!connected || !publicKey) return null
+
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      {balance !== null && (
+        <span className="text-[10px] font-light text-muted-foreground/50">
+          {balance.toFixed(2)} SOL
+        </span>
+      )}
+      <button
+        onClick={handleAirdrop}
+        disabled={state === 'loading'}
+        className={cn(
+          "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all border",
+          state === 'success'
+            ? "text-[#14F195]/80 bg-[#14F195]/10 border-[#14F195]/20"
+            : state === 'error'
+              ? "text-red-400/80 bg-red-400/10 border-red-400/20"
+              : "text-blue-400/70 bg-blue-400/8 hover:bg-blue-400/15 border-blue-400/15 disabled:opacity-50"
+        )}
+        title="Request 2 SOL from faucet"
+      >
+        <Droplets size={10} className={state === 'loading' ? 'animate-pulse' : ''} />
+        {state === 'loading' ? 'Airdropping...' : state === 'success' ? '+2 SOL' : state === 'error' ? 'Failed' : 'Faucet'}
+      </button>
+    </div>
+  )
+}
+
 export function TopBar({ className, activePage }: TopBarProps) {
   const { publicKey, connected } = useWallet();
   const isCreator = activePage === 'publish'
@@ -157,9 +220,11 @@ export function TopBar({ className, activePage }: TopBarProps) {
         <CreatorControls />
       ) : (
         <span className="text-sm font-light tracking-widest text-foreground/80 uppercase flex-1">
-          solana
+          SolEngine
         </span>
       )}
+
+      <FaucetButton />
 
       <div className="wallet-adapter-button-wrapper flex-shrink-0">
         {connected && publicKey ? (

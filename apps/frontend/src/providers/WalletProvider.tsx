@@ -6,9 +6,11 @@ import {
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
-import { clusterApiUrl } from "@solana/web3.js";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
+
+// Use local validator if VITE_SOLANA_RPC is set, otherwise default to devnet
+const CUSTOM_RPC = import.meta.env.VITE_SOLANA_RPC as string | undefined;
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -16,7 +18,7 @@ interface WalletProviderProps {
 
 export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
   const network = WalletAdapterNetwork.Devnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const endpoint = useMemo(() => CUSTOM_RPC || "http://127.0.0.1:8899", []);
   const wallets = useMemo(() => [new PhantomWalletAdapter()], [network]);
 
   return (
