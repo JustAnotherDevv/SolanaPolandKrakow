@@ -10,7 +10,6 @@ export function GameTypeSelector({ onSelect }: GameTypeSelectorProps) {
   const setGameType = useCreatorStore((s) => s.setGameType)
 
   function handleSelect(type: '2d' | '3d') {
-    if (type === '3d') return // coming soon
     setGameType(type)
     onSelect(type)
   }
@@ -49,19 +48,24 @@ export function GameTypeSelector({ onSelect }: GameTypeSelectorProps) {
           </div>
         </motion.button>
 
-        {/* 3D Card — Coming Soon */}
-        <div className="flex-1 flex flex-col items-center gap-3 p-6 rounded-2xl border border-border/30 bg-muted/5 opacity-40 cursor-not-allowed relative overflow-hidden">
-          <div className="w-12 h-12 rounded-xl bg-muted/20 flex items-center justify-center">
-            <Box size={22} className="text-muted-foreground" />
+        {/* 3D Card */}
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => handleSelect('3d')}
+          className="flex-1 flex flex-col items-center gap-3 p-6 rounded-2xl border border-[#9945FF]/30 bg-[#9945FF]/5 hover:bg-[#9945FF]/10 hover:border-[#9945FF]/60 transition-all cursor-pointer"
+        >
+          <div className="w-12 h-12 rounded-xl bg-[#9945FF]/15 flex items-center justify-center">
+            <Box size={22} className="text-[#9945FF]" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-muted-foreground">3D Games</p>
-            <p className="text-[10px] font-light text-muted-foreground mt-0.5">WebGL-powered</p>
+            <p className="text-sm font-medium text-foreground">3D Games</p>
+            <p className="text-[10px] font-light text-muted-foreground mt-0.5">Three.js + AI scene</p>
           </div>
-          <div className="px-2 py-0.5 rounded-full bg-muted/20 text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
-            Coming Soon
+          <div className="px-2 py-0.5 rounded-full bg-[#9945FF]/20 text-[9px] font-medium text-[#9945FF] uppercase tracking-wider">
+            New
           </div>
-        </div>
+        </motion.button>
       </div>
 
       <p className="text-[10px] text-muted-foreground/60 font-light max-w-xs text-center">

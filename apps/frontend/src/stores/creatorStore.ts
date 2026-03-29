@@ -20,11 +20,37 @@ export interface StoredMessage {
   isError?: boolean
 }
 
+export interface Vec3 { x: number; y: number; z: number }
+
+export interface SceneObject {
+  id: string
+  name: string
+  type: string
+  position: Vec3
+  rotation: Vec3
+  scale: Vec3
+  mesh?: { geometry: string; color: string }
+  controller?: Record<string, unknown>
+  abilities?: string[]
+}
+
+export interface Scene3D {
+  settings: {
+    skyColor: string
+    ambientColor: string
+    fog?: { color: string; near: number; far: number }
+    gravity: number
+  }
+  objects: SceneObject[]
+}
+
 export interface GeneratedGame {
   id: string
   name: string
   description: string
+  type: '2d' | '3d'
   code: string                    // mirrors versions[currentVersionId].code
+  scene?: Scene3D                 // 3D games only
   versions: CodeVersion[]
   currentVersionId: string | null
   chatHistory: StoredMessage[]
@@ -38,11 +64,13 @@ interface CreatorStore {
   gameType: '2d' | '3d'
 
   setGameType: (t: '2d' | '3d') => void
-  startNewGame: () => string
+  startNewGame: (type?: '2d' | '3d') => string
   setActiveGame: (id: string | null) => void
 
   updateCode: (id: string, code: string) => void
   updateName: (id: string, name: string) => void
+  updateScene: (id: string, scene: Scene3D) => void
+  updateSceneObject: (gameId: string, objectId: string, patch: Partial<SceneObject>) => void
 
   // Version management
   addVersion: (gameId: string, code: string, messageId: string) => string
@@ -96,7 +124,9 @@ function migrateGame(raw: Record<string, unknown>): GeneratedGame {
     id: raw.id as string,
     name: (raw.name as string) ?? 'Untitled Game',
     description: (raw.description as string) ?? '',
+    type: (raw.type as '2d' | '3d' | undefined) ?? '2d',
     code: (raw.code as string) ?? '',
+    scene: raw.scene as Scene3D | undefined,
     versions,
     currentVersionId: (raw.currentVersionId as string | null) ?? (versions[0]?.id ?? null),
     chatHistory,
@@ -116,12 +146,13 @@ export const useCreatorStore = create<CreatorStore>()(
 
       setGameType: (t) => set({ gameType: t }),
 
-      startNewGame: () => {
+      startNewGame: (type = '2d') => {
         const id = generateId()
         const game: GeneratedGame = {
           id,
           name: 'Untitled Game',
           description: 'AI-generated game',
+          type,
           code: '',
           versions: [],
           currentVersionId: null,
@@ -143,6 +174,27 @@ export const useCreatorStore = create<CreatorStore>()(
       updateName: (id, name) =>
         set((state) => ({
           games: state.games.map((g) => (g.id === id ? { ...g, name } : g)),
+        })),
+
+      updateScene: (id, scene) =>
+        set((state) => ({
+          games: state.games.map((g) => (g.id === id ? { ...g, scene } : g)),
+        })),
+
+      updateSceneObject: (gameId, objectId, patch) =>
+        set((state) => ({
+          games: state.games.map((g) => {
+            if (g.id !== gameId || !g.scene) return g
+            return {
+              ...g,
+              scene: {
+                ...g.scene,
+                objects: g.scene.objects.map((o) =>
+                  o.id === objectId ? { ...o, ...patch } : o,
+                ),
+              },
+            }
+          }),
         })),
 
       addVersion: (gameId, code, messageId) => {

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCreatorStore, generateId } from '@/stores/creatorStore'
+import type { Scene3D } from '@/stores/creatorStore'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL ?? ''
 
@@ -31,6 +32,7 @@ export function useAgentStream(gameId: string) {
 
   const addVersion = useCreatorStore((s) => s.addVersion)
   const updateName = useCreatorStore((s) => s.updateName)
+  const updateScene = useCreatorStore((s) => s.updateScene)
   const appendStoredMessage = useCreatorStore((s) => s.appendStoredMessage)
   const games = useCreatorStore((s) => s.games)
 
@@ -40,11 +42,11 @@ export function useAgentStream(gameId: string) {
   const assetsAccRef = useRef<GeneratedAsset[]>([])
 
   // Ensure the backend game exists (create it with same ID as frontend)
-  const ensureBackendGame = useCallback(async (name: string) => {
+  const ensureBackendGame = useCallback(async (name: string, type?: '2d' | '3d') => {
     const res = await fetch(`${BACKEND}/api/games`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: gameId, name }),
+      body: JSON.stringify({ id: gameId, name, type: type ?? '2d' }),
     })
     if (!res.ok) {
       // Game may already exist — ignore 409 or duplicate key errors
@@ -113,6 +115,23 @@ export function useAgentStream(gameId: string) {
           structureType: data.type,
           structureName: data.name,
         }])
+      })
+
+      es.addEventListener('scene_update', (e) => {
+        const data = JSON.parse(e.data) as { scene: Scene3D }
+        updateScene(gameId, data.scene)
+        setSteps((prev) => {
+          // Replace last scene_update step instead of stacking
+          const last = prev[prev.length - 1]
+          const newStep = {
+            id: generateId(),
+            type: 'scene_update',
+            message: `Scene: ${data.scene.objects.length} object${data.scene.objects.length !== 1 ? 's' : ''}`,
+            icon: '🧊',
+          }
+          if (last?.type === 'scene_update') return [...prev.slice(0, -1), newStep]
+          return [...prev, newStep]
+        })
       })
 
       es.addEventListener('coding', (e) => {
@@ -204,13 +223,13 @@ export function useAgentStream(gameId: string) {
 
       try {
         const game = games.find((g) => g.id === gameId)
-        await ensureBackendGame(game?.name ?? 'Untitled Game')
+        await ensureBackendGame(game?.name ?? 'Untitled Game', game?.type)
         await openStream()
 
         const res = await fetch(`${BACKEND}/api/games/${gameId}/message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userMessage }),
+          body: JSON.stringify({ message: userMessage, mode: game?.type ?? '2d' }),
         })
 
         if (!res.ok) throw new Error(`Backend error: ${res.status}`)

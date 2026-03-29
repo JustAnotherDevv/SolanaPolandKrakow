@@ -5,23 +5,24 @@ const router = Router()
 
 // POST /api/games — create new game (accepts optional id from body)
 router.post('/', (req, res) => {
-  const body = req.body as { id?: string; name?: string }
+  const body = req.body as { id?: string; name?: string; type?: '2d' | '3d' }
   const id = body.id ?? generateId()
   const name = body.name ?? 'Untitled Game'
+  const type = body.type ?? '2d'
   const now = Date.now()
   // Upsert — if game already exists just return it
-  const existing = db.prepare(`SELECT id, name, code, created_at FROM games WHERE id = ?`).get(id) as {
-    id: string; name: string; code: string; created_at: number
+  const existing = db.prepare(`SELECT id, name, type, code, scene, created_at FROM games WHERE id = ?`).get(id) as {
+    id: string; name: string; type: string; code: string; scene: string; created_at: number
   } | undefined
-  if (existing) return res.json({ id: existing.id, name: existing.name, code: existing.code, createdAt: existing.created_at })
-  db.prepare(`INSERT INTO games (id, name, code, created_at, updated_at) VALUES (?, ?, '', ?, ?)`).run(id, name, now, now)
-  return res.json({ id, name, code: '', createdAt: now })
+  if (existing) return res.json({ id: existing.id, name: existing.name, type: existing.type, code: existing.code, scene: existing.scene, createdAt: existing.created_at })
+  db.prepare(`INSERT INTO games (id, name, type, code, scene, created_at, updated_at) VALUES (?, ?, ?, '', '', ?, ?)`).run(id, name, type, now, now)
+  return res.json({ id, name, type, code: '', scene: '', createdAt: now })
 })
 
 // GET /api/games/:id
 router.get('/:id', (req, res) => {
   const game = db.prepare(`SELECT * FROM games WHERE id = ?`).get(req.params.id) as {
-    id: string; name: string; code: string; created_at: number; updated_at: number
+    id: string; name: string; type: string; code: string; scene: string; created_at: number; updated_at: number
   } | undefined
   if (!game) return res.status(404).json({ error: 'Game not found' })
 
@@ -34,7 +35,9 @@ router.get('/:id', (req, res) => {
   return res.json({
     id: game.id,
     name: game.name,
+    type: game.type ?? '2d',
     code: game.code,
+    scene: game.scene ?? '',
     createdAt: game.created_at,
     updatedAt: game.updated_at,
     assets: (assets as Array<{ id: string; name: string; type: string; prompt: string; width: number; height: number; created_at: number }>).map((a) => ({

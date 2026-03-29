@@ -2,7 +2,9 @@ export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS games (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL DEFAULT 'Untitled Game',
+  type TEXT NOT NULL DEFAULT '2d',
   code TEXT NOT NULL DEFAULT '',
+  scene TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );

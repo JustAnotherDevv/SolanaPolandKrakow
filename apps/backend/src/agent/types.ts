@@ -8,6 +8,7 @@ export interface AgentStep {
     | 'coding'
     | 'code_chunk'
     | 'code_reset'
+    | 'scene_update'
     | 'done'
     | 'error'
   data: Record<string, unknown>

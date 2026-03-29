@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { History, Rocket, Eye, MessageSquare, Code2, GitBranch } from 'lucide-react'
+import { History, Rocket, Eye, MessageSquare, Code2, GitBranch, Box } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { GameTypeSelector } from '@/components/creator/GameTypeSelector'
 import { CreatorChat } from '@/components/creator/CreatorChat'
@@ -8,12 +8,13 @@ import { CodeEditor } from '@/components/creator/CodeEditor'
 import { GamePreview } from '@/components/creator/GamePreview'
 import { CreatorHistory } from '@/components/creator/CreatorHistory'
 import { VersionTimeline } from '@/components/creator/VersionTimeline'
+import { Editor3D } from '@/components/creator3d/Editor3D'
 import { useCreatorStore } from '@/stores/creatorStore'
 import { useFeedStore } from '@/stores/feedStore'
 import type { FeedGame } from '@/lib/mockData'
 import { cn } from '@/lib/utils'
 
-type CreatorView = 'type-select' | 'chat' | 'code' | 'versions'
+type CreatorView = 'type-select' | 'chat' | 'code' | 'versions' | 'editor3d'
 
 interface PreviewState {
   code: string
@@ -40,9 +41,9 @@ export function CreatorPage() {
   const [publishSuccess, setPublishSuccess] = useState(false)
   const [autoFixMessage, setAutoFixMessage] = useState<string | null>(null)
 
-  function handleTypeSelect() {
-    startNewGame()
-    setView('chat')
+  function handleTypeSelect(type: '2d' | '3d') {
+    startNewGame(type)
+    setView(type === '3d' ? 'editor3d' : 'chat')
   }
 
   function handleNewGame() {
@@ -52,7 +53,8 @@ export function CreatorPage() {
 
   function handleResumeGame(id: string) {
     setActiveGame(id)
-    setView('chat')
+    const resumedGame = games.find((g) => g.id === id)
+    setView(resumedGame?.type === '3d' ? 'editor3d' : 'chat')
     setShowHistory(false)
   }
 
@@ -112,11 +114,18 @@ export function CreatorPage() {
   const hasCode = !!(activeGame?.code)
   const versionCount = activeGame?.versions.length ?? 0
 
-  const TABS = [
-    { id: 'chat' as const, icon: MessageSquare, label: 'Chat' },
-    { id: 'code' as const, icon: Code2, label: 'Code' },
-    { id: 'versions' as const, icon: GitBranch, label: `Versions${versionCount > 0 ? ` (${versionCount})` : ''}` },
-  ]
+  const is3D = activeGame?.type === '3d'
+
+  const TABS = is3D
+    ? [
+        { id: 'editor3d' as const, icon: Box, label: 'Scene' },
+        { id: 'versions' as const, icon: GitBranch, label: `Versions${versionCount > 0 ? ` (${versionCount})` : ''}` },
+      ]
+    : [
+        { id: 'chat' as const, icon: MessageSquare, label: 'Chat' },
+        { id: 'code' as const, icon: Code2, label: 'Code' },
+        { id: 'versions' as const, icon: GitBranch, label: `Versions${versionCount > 0 ? ` (${versionCount})` : ''}` },
+      ]
 
   return (
     <motion.div
@@ -272,6 +281,18 @@ export function CreatorPage() {
             </motion.div>
           )}
 
+          {view === 'editor3d' && activeGameId && (
+            <motion.div
+              key="editor3d"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full"
+            >
+              <Editor3D gameId={activeGameId} />
+            </motion.div>
+          )}
+
           {view === 'versions' && activeGameId && (
             <motion.div
               key="versions"
@@ -286,7 +307,7 @@ export function CreatorPage() {
                   const vLabel = activeGame?.versions.find((v) => v.code === code)?.label
                   setPreview({ code, versionLabel: vLabel })
                 }}
-                onRestored={() => setView('chat')}
+                onRestored={() => setView(is3D ? 'editor3d' : 'chat')}
               />
             </motion.div>
           )}

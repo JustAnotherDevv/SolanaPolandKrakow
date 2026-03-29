@@ -1,7 +1,9 @@
 import { db, generateId } from '../db/client'
 import { chatCompletion, streamChatCompletion } from '../lib/openrouter'
 import { GAME_JUICE_LIB, buildSystemPrompt } from './prompts'
+import { build3DSystemPrompt } from './prompts3d'
 import { TOOL_DEFS, executeTool } from './tools'
+import { TOOL_DEFS_3D, executeTool3D } from './tools3d'
 import type { Message } from '../lib/openrouter'
 import type { StepEmitter } from './types'
 
@@ -128,10 +130,33 @@ async function finalizeCode(rawCode: string, emit: StepEmitter): Promise<string>
   return code
 }
 
+/**
+ * Finalize 3D code: validate syntax, auto-fix if needed. No GameJuice injection.
+ */
+async function finalizeCode3D(rawCode: string, emit: StepEmitter): Promise<string> {
+  emit({ type: 'coding', data: { message: 'Finalizing 3D game code...' } })
+
+  let code = stripFences(rawCode)
+
+  emit({ type: 'code_reset', data: {} })
+  emit({ type: 'code_chunk', data: { delta: code } })
+
+  const syntaxErr = checkSyntax(code)
+  if (syntaxErr) {
+    emit({ type: 'agent_step', data: { message: `⚠️ Syntax error detected: ${syntaxErr}`, icon: '⚠️', step: 'syntax_error' } })
+    code = await autoFixSyntax(code, syntaxErr, emit)
+  } else {
+    emit({ type: 'agent_step', data: { message: '✓ 3D code validated', icon: '✓', step: 'validated' } })
+  }
+
+  return code
+}
+
 export async function runAgentLoop(
   gameId: string,
   userMessage: string,
   emit: StepEmitter,
+  mode: '2d' | '3d' = '2d',
 ): Promise<{ code: string; name: string }> {
   const history = loadHistory(gameId)
 
@@ -140,19 +165,20 @@ export async function runAgentLoop(
   saveMessage(gameId, userMsg)
 
   const isFix = userMessage.trimStart().startsWith('[FIX_ERROR]')
-  const systemContent = isFix
-    ? `You are fixing a broken JavaScript game. The user provides the runtime error and current code.
-Analyze the error, fix it, and immediately call write_game_code with the corrected JavaScript.
+  const fixPrompt = `You are fixing a broken JavaScript game. The user provides the runtime error and current code.
+Analyze the error, fix it, and immediately call ${mode === '3d' ? 'write_3d_game_code' : 'write_game_code'} with the corrected JavaScript.
 Rules:
 - Do NOT call web_search, generate_sprite, or any other tool
-- ONLY call write_game_code once with the fixed code
+- ONLY call ${mode === '3d' ? 'write_3d_game_code' : 'write_game_code'} once with the fixed code
 - Keep all existing asset URLs, game juice, and logic intact
 - Fix ONLY what causes the error`
-    : buildSystemPrompt()
 
+  const systemContent = isFix ? fixPrompt : (mode === '3d' ? build3DSystemPrompt() : buildSystemPrompt())
+
+  const allTools = mode === '3d' ? TOOL_DEFS_3D : TOOL_DEFS
   const toolsToUse = isFix
-    ? TOOL_DEFS.filter((t) => t.function.name === 'write_game_code')
-    : TOOL_DEFS
+    ? allTools.filter((t) => t.function.name === (mode === '3d' ? 'write_3d_game_code' : 'write_game_code'))
+    : allTools
 
   const systemMsg: Message = { role: 'system', content: systemContent }
   const messages: Message[] = [systemMsg, ...history]
@@ -203,13 +229,18 @@ Rules:
       let isDone = false
 
       try {
-        const out = await executeTool(toolName, args, emit)
+        const out = mode === '3d'
+          ? await executeTool3D(toolName, args, emit)
+          : await executeTool(toolName, args, emit)
         result = out.result
         isDone = out.done ?? false
 
         if (isDone && out.code) {
-          finalCode = await finalizeCode(out.code, emit)
-          finalName = out.name ?? 'AI Game'
+          // 3D games: no GameJuice injection — Three.js is injected by the preview
+          finalCode = mode === '3d'
+            ? await finalizeCode3D(out.code, emit)
+            : await finalizeCode(out.code, emit)
+          finalName = out.name ?? (mode === '3d' ? 'AI 3D Game' : 'AI Game')
         }
       } catch (err) {
         result = { error: String(err) }

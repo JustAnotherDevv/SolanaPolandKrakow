@@ -11,7 +11,7 @@ const connections = new Map<string, Response>()
 // POST /api/games/:id/message — trigger agent generation
 router.post('/:id/message', async (req, res) => {
   const gameId = req.params.id
-  const { message } = req.body as { message: string }
+  const { message, mode } = req.body as { message: string; mode?: '2d' | '3d' }
 
   if (!message?.trim()) return res.status(400).json({ error: 'message required' })
 
@@ -30,8 +30,15 @@ router.post('/:id/message', async (req, res) => {
     sseRes.write(`event: ${event}\ndata: ${data}\n\n`)
   }
 
+  // Detect game type from DB if mode not provided
+  let gameMode: '2d' | '3d' = mode ?? '2d'
+  if (!mode) {
+    const gameRow = db.prepare(`SELECT type FROM games WHERE id = ?`).get(gameId) as { type?: string } | undefined
+    if (gameRow?.type === '3d') gameMode = '3d'
+  }
+
   try {
-    await runAgentLoop(gameId, message, emit)
+    await runAgentLoop(gameId, message, emit, gameMode)
   } catch (err) {
     emit({ type: 'error', data: { message: String(err) } })
   }
