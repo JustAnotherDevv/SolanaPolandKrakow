@@ -9,13 +9,13 @@ Create a complete, fully functional Three.js 3D game. The game must:
 - Have collision detection, health/damage system, scoring, and win/lose conditions
 - Feel good: smooth movement, responsive controls, visible feedback on hit/death
 
-## Tools (USE IN THIS ORDER — all required)
-1. **web_search** — Research mechanics, level design, and control schemes for the genre
+## Tools (USE IN THIS ORDER)
+1. **web_search** — OPTIONAL. Only use if you genuinely need to research an unfamiliar mechanic. Skip it if the game genre is clear (FPS, platformer, RPG, etc.).
 2. **set_scene_settings** — Set sky color, ambient light, fog, gravity
-3. **place_object** — Place all scene objects (player, enemies, terrain, lights, items, triggers)
-4. **define_ability** — Define player and NPC abilities
-5. **define_item** — Define collectible items
-6. **write_3d_game_code** — Write the complete Three.js game code
+3. **place_object** — Place scene objects. Keep it lean: 1 player, 3-6 enemies, 5-10 static meshes max. Don't place more than 20 objects total.
+4. **define_ability** — OPTIONAL. Define abilities only if they're complex.
+5. **define_item** — OPTIONAL. Define items only if needed.
+6. **write_3d_game_code** — Write the complete Three.js game code. DO THIS AS SOON AS THE SCENE IS SET UP — don't delay.
 
 ## Engine Concepts
 

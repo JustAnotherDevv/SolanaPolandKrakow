@@ -8,6 +8,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ['three'],
+  },
+  optimizeDeps: {
+    include: ['three'],
+    exclude: ['three/addons'],
   },
   define: {
     "process.env": {},

@@ -33,9 +33,10 @@ export function CreatorPage() {
   const activeGame = games.find((g) => g.id === activeGameId) ?? null
   const currentVersion = activeGame?.versions.find((v) => v.id === activeGame.currentVersionId)
 
-  const [view, setView] = useState<CreatorView>(
-    activeGameId && activeGame ? 'chat' : 'type-select',
-  )
+  const [view, setView] = useState<CreatorView>(() => {
+    if (!activeGameId || !activeGame) return 'type-select'
+    return activeGame.type === '3d' ? 'editor3d' : 'chat'
+  })
   const [preview, setPreview] = useState<PreviewState | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
@@ -221,8 +222,8 @@ export function CreatorPage() {
             </button>
           ))}
 
-          {/* Floating preview button in tab bar */}
-          {hasCode && (
+          {/* Floating preview button in tab bar — 2D only */}
+          {hasCode && !is3D && (
             <button
               onClick={() => openPreview()}
               className="ml-auto flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-primary hover:bg-primary/10 transition-all"

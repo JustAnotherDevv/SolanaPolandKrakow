@@ -9,7 +9,7 @@ import type { StepEmitter } from './types'
 
 const AGENT_MODEL = process.env.AGENT_MODEL ?? 'anthropic/claude-3.5-sonnet'
 const CODE_MODEL = process.env.CODE_MODEL ?? 'google/gemini-2.0-flash-001'
-const MAX_STEPS = 25
+const MAX_STEPS = 50
 const MAX_AUTOFIX = 3
 
 function saveMessage(gameId: string, msg: Message) {

@@ -71,6 +71,9 @@ interface CreatorStore {
   updateName: (id: string, name: string) => void
   updateScene: (id: string, scene: Scene3D) => void
   updateSceneObject: (gameId: string, objectId: string, patch: Partial<SceneObject>) => void
+  addSceneObject: (gameId: string, obj: SceneObject) => void
+  removeSceneObject: (gameId: string, objectId: string) => void
+  duplicateSceneObject: (gameId: string, objectId: string) => string
 
   // Version management
   addVersion: (gameId: string, code: string, messageId: string) => string
@@ -196,6 +199,48 @@ export const useCreatorStore = create<CreatorStore>()(
             }
           }),
         })),
+
+      addSceneObject: (gameId, obj) =>
+        set((state) => ({
+          games: state.games.map((g) => {
+            if (g.id !== gameId) return g
+            const scene = g.scene ?? {
+              settings: { skyColor: '#1a0a2e', ambientColor: '#404060', gravity: -9.8 },
+              objects: [],
+            }
+            return { ...g, scene: { ...scene, objects: [...scene.objects, obj] } }
+          }),
+        })),
+
+      removeSceneObject: (gameId, objectId) =>
+        set((state) => ({
+          games: state.games.map((g) => {
+            if (g.id !== gameId || !g.scene) return g
+            return {
+              ...g,
+              scene: { ...g.scene, objects: g.scene.objects.filter((o) => o.id !== objectId) },
+            }
+          }),
+        })),
+
+      duplicateSceneObject: (gameId, objectId) => {
+        const newId = generateId()
+        set((state) => ({
+          games: state.games.map((g) => {
+            if (g.id !== gameId || !g.scene) return g
+            const src = g.scene.objects.find((o) => o.id === objectId)
+            if (!src) return g
+            const copy: SceneObject = {
+              ...src,
+              id: newId,
+              name: src.name + ' (copy)',
+              position: { x: src.position.x + 1.5, y: src.position.y, z: src.position.z + 1.5 },
+            }
+            return { ...g, scene: { ...g.scene, objects: [...g.scene.objects, copy] } }
+          }),
+        }))
+        return newId
+      },
 
       addVersion: (gameId, code, messageId) => {
         const versionId = generateId()
