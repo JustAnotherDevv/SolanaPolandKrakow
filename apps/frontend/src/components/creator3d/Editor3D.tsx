@@ -79,6 +79,12 @@ const TYPE_DEFAULTS: Record<string, Partial<SceneObject>> = {
   Trigger:          { scale: { x: 2, y: 2, z: 2 } },
   GameController:   {},
   Item:             { mesh: { geometry: 'sphere',  color: '#b5cea8' } },
+  AmbientLight:     { controller: { color: '#ffffff', intensity: 0.8 } },
+  HemisphereLight:  { controller: { skyColor: '#87ceeb', groundColor: '#444040', intensity: 0.6 } },
+  SpotLight:        { controller: { color: '#ffffff', intensity: 1.5, angle: 0.4, penumbra: 0.2, distance: 50 } },
+  Fog:              { controller: { fogType: 'exp2', color: '#0d1117', density: 0.02, near: 10, far: 200 } },
+  Sky:              { controller: { color: '#0d1117' } },
+  PostFX:           { controller: { preset: 'toon', outlineStrength: 3.5, outlineThickness: 1.5, saturation: 1.55, quantizeSteps: 10, vignetteStrength: 0.55 } },
 }
 
 export function Editor3D({ gameId }: Editor3DProps) {
@@ -103,6 +109,22 @@ export function Editor3D({ gameId }: Editor3DProps) {
   const selectedObject = game?.scene?.objects.find((o) => o.id === selectedId) ?? null
   const hasCode    = !!(game?.code)
   const hasContent = hasCode || !!(game?.scene?.objects.length)
+
+  // Capture-phase guard: prevent game code's window keydown handlers from
+  // stealing keys (Space, arrows, etc.) when the user is typing in an input
+  useEffect(() => {
+    const guard = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+        e.stopPropagation()
+      }
+    }
+    document.addEventListener('keydown', guard, true)
+    document.addEventListener('keyup', guard, true)
+    return () => {
+      document.removeEventListener('keydown', guard, true)
+      document.removeEventListener('keyup', guard, true)
+    }
+  }, [])
 
   // W/E/R keyboard shortcuts for transform mode
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -350,17 +372,17 @@ export function Editor3D({ gameId }: Editor3DProps) {
                 >✕</button>
               </div>
 
-              {/* Panel content — full remaining height */}
+              {/* Panel content — both tabs stay mounted (CSS hidden) to preserve state */}
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {sidebarTab === 'output' && (
+                <div style={{ display: sidebarTab === 'output' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
                   <OutputLog steps={agentStream.steps} assets={agentStream.assets} streaming={agentStream.streaming} />
-                )}
-                {sidebarTab === 'chat' && (
-                  <CreatorChat gameId={gameId} onPreview={(code) => {
+                </div>
+                <div style={{ display: sidebarTab === 'chat' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+                  <CreatorChat gameId={gameId} externalAgent={agentStream} onPreview={(code) => {
                     if (code) updateCode(gameId, code)
                     if (game?.code || code) handlePlay()
                   }} />
-                )}
+                </div>
               </div>
             </motion.div>
           )}

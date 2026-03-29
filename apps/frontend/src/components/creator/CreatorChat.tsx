@@ -9,11 +9,23 @@ import { AgentProgress } from './AgentProgress'
 import { VersionBadge } from './VersionBadge'
 import { cn } from '@/lib/utils'
 
+interface ExternalAgentStream {
+  send: (msg: string) => void
+  abort: () => void
+  streaming: boolean
+  steps: import('@/hooks/useAgentStream').AgentStepItem[]
+  assets: import('@/hooks/useAgentStream').GeneratedAsset[]
+  streamedCode: string
+  backendAvailable: boolean
+}
+
 interface CreatorChatProps {
   gameId: string
   onPreview: (code?: string) => void
   autoSend?: string | null
   onAutoSendConsumed?: () => void
+  /** When provided, CreatorChat uses this instead of creating its own useAgentStream */
+  externalAgent?: ExternalAgentStream
 }
 
 // ─── Code block with copy button ──────────────────────────────────────────────
@@ -149,18 +161,20 @@ const STARTER_PROMPTS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CreatorChat({ gameId, onPreview, autoSend, onAutoSendConsumed }: CreatorChatProps) {
+export function CreatorChat({ gameId, onPreview, autoSend, onAutoSendConsumed, externalAgent }: CreatorChatProps) {
   const game = useCreatorStore((s) => s.games.find((g) => g.id === gameId))
   const updateName = useCreatorStore((s) => s.updateName)
-  const agentStream = useAgentStream(gameId)
+  const internalAgentStream = useAgentStream(gameId)
   const directGen = useGameGenerator(gameId)
-  // Use backend agent when available, fallback to direct OpenRouter
+  // If an external agent stream is provided (3D editor), use it exclusively.
+  // Otherwise fall back to internal hook → backend → direct OpenRouter.
+  const agentStream = externalAgent ?? internalAgentStream
   const useBackend = agentStream.backendAvailable
   const send = useBackend ? agentStream.send : directGen.send
   const abort = useBackend ? agentStream.abort : directGen.abort
   const streaming = useBackend ? agentStream.streaming : directGen.streaming
-  const steps = useBackend ? agentStream.steps : ([] as typeof agentStream.steps)
-  const assets = useBackend ? agentStream.assets : ([] as typeof agentStream.assets)
+  const steps = useBackend ? agentStream.steps : ([] as typeof internalAgentStream.steps)
+  const assets = useBackend ? agentStream.assets : ([] as typeof internalAgentStream.assets)
   const streamedText = useBackend ? agentStream.streamedCode : directGen.streamedText
   const [input, setInput] = useState('')
   const [editingName, setEditingName] = useState(false)

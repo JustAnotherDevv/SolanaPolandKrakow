@@ -6,16 +6,36 @@ const TYPE_META: Record<string, { icon: string; color: string; short: string }> 
   PlayerController: { icon: '●', color: '#4ec9b0', short: 'Player' },
   NPCController:    { icon: '●', color: '#f48771', short: 'NPC' },
   StaticMesh:       { icon: '■', color: '#9cdcfe', short: 'Mesh' },
-  DirectionalLight: { icon: '✦', color: '#dcdcaa', short: 'DirLight' },
-  PointLight:       { icon: '✦', color: '#dcdcaa', short: 'PtLight' },
+  DirectionalLight: { icon: '↘', color: '#ffe066', short: 'DirLight' },
+  PointLight:       { icon: '◉', color: '#ffcc44', short: 'PtLight' },
+  AmbientLight:     { icon: '☀', color: '#ffd580', short: 'Ambient' },
+  HemisphereLight:  { icon: '⬡', color: '#87ceeb', short: 'Hemi' },
+  SpotLight:        { icon: '⚟', color: '#ff9944', short: 'Spot' },
+  Fog:              { icon: '≋', color: '#88aacc', short: 'Fog' },
+  Sky:              { icon: '◌', color: '#4ec9f0', short: 'Sky' },
+  PostFX:           { icon: '✦', color: '#c586c0', short: 'PostFX' },
   Item:             { icon: '◆', color: '#b5cea8', short: 'Item' },
   Trigger:          { icon: '◇', color: '#569cd6', short: 'Trigger' },
   GameController:   { icon: '⬡', color: '#c586c0', short: 'GameCtrl' },
 }
 
-const ADD_TYPES = [
-  'StaticMesh', 'PlayerController', 'NPCController',
-  'Item', 'Trigger', 'GameController', 'DirectionalLight', 'PointLight',
+const ADD_CATEGORIES = [
+  {
+    label: 'Gameplay',
+    types: ['StaticMesh', 'PlayerController', 'NPCController', 'Item', 'Trigger', 'GameController'],
+  },
+  {
+    label: 'Lighting',
+    types: ['AmbientLight', 'HemisphereLight', 'DirectionalLight', 'PointLight', 'SpotLight'],
+  },
+  {
+    label: 'Environment',
+    types: ['Fog', 'Sky'],
+  },
+  {
+    label: 'Post FX',
+    types: ['PostFX'],
+  },
 ]
 
 interface HierarchyProps {
@@ -32,7 +52,6 @@ export function Hierarchy({ scene, selectedId, onSelect, onAdd, onDelete, onDupl
   const [addOpen, setAddOpen] = useState(false)
   const addRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!addOpen) return
     const handler = (e: MouseEvent) => {
@@ -51,7 +70,6 @@ export function Hierarchy({ scene, selectedId, onSelect, onAdd, onDelete, onDupl
         </span>
         <span style={{ fontSize: 8, color: '#333338' }}>{objects.length}</span>
 
-        {/* Add button */}
         <div ref={addRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setAddOpen(v => !v)}
@@ -69,33 +87,39 @@ export function Hierarchy({ scene, selectedId, onSelect, onAdd, onDelete, onDupl
             Add
           </button>
 
-          {/* Dropdown */}
           {addOpen && (
             <div style={{
               position: 'absolute', top: '100%', right: 0, marginTop: 3, zIndex: 50,
               background: '#1a1a22', border: '1px solid #2a2a36', borderRadius: 5,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 148, overflow: 'hidden',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 164, overflow: 'hidden',
             }}>
-              {ADD_TYPES.map(type => {
-                const meta = TYPE_META[type] ?? { icon: '●', color: '#888', short: type }
-                return (
-                  <button
-                    key={type}
-                    onClick={() => { onAdd?.(type); setAddOpen(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 10px',
-                      fontSize: 10, color: '#a8a8b8', background: 'transparent', textAlign: 'left',
-                      borderBottom: '1px solid #1e1e28', cursor: 'pointer',
-                      transition: 'background 0.1s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#22222e' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <span style={{ fontSize: 9, color: meta.color }}>{meta.icon}</span>
-                    <span>{type}</span>
-                  </button>
-                )
-              })}
+              {ADD_CATEGORIES.map((cat, ci) => (
+                <div key={cat.label}>
+                  {ci > 0 && <div style={{ height: 1, background: '#222230', margin: '2px 0' }} />}
+                  <div style={{ padding: '4px 10px 2px', fontSize: 7, fontWeight: 700, color: '#444450', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                    {cat.label}
+                  </div>
+                  {cat.types.map(type => {
+                    const meta = TYPE_META[type] ?? { icon: '●', color: '#888', short: type }
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => { onAdd?.(type); setAddOpen(false) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '4px 10px',
+                          fontSize: 10, color: '#a8a8b8', background: 'transparent', textAlign: 'left',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#22222e' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <span style={{ fontSize: 9, color: meta.color, width: 12, textAlign: 'center' }}>{meta.icon}</span>
+                        <span>{type}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -164,7 +188,6 @@ function HierarchyRow({
         {meta.short}
       </span>
 
-      {/* Hover actions */}
       {hovered && (
         <div style={{ display: 'flex', gap: 2, marginLeft: 4 }} onClick={e => e.stopPropagation()}>
           <button

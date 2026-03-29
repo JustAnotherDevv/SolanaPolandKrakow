@@ -19,6 +19,11 @@ const C = {
 
 const GEOMS = ['box', 'sphere', 'capsule', 'cylinder', 'plane']
 
+// Types that are pure config — no physical position in the scene
+const CONFIG_NODE_TYPES = new Set([
+  'AmbientLight', 'HemisphereLight', 'Fog', 'Sky', 'PostFX', 'GameController',
+])
+
 interface InspectorProps {
   object: SceneObject | null
   onUpdate: (patch: Partial<SceneObject>) => void
@@ -106,12 +111,14 @@ export function Inspector({ object, onUpdate, onDelete, onDuplicate, onNameChang
             </div>
           </div>
 
-          {/* Transform */}
-          <Section label="Transform">
-            <Vec3Row label="Position" value={object.position} onChange={v => onUpdate({ position: v })} />
-            <Vec3Row label="Rotation" value={object.rotation} onChange={v => onUpdate({ rotation: v })} />
-            <Vec3Row label="Scale"    value={object.scale}    onChange={v => onUpdate({ scale: v })} />
-          </Section>
+          {/* Transform — hidden for config-only nodes */}
+          {!CONFIG_NODE_TYPES.has(object.type) && (
+            <Section label="Transform">
+              <Vec3Row label="Position" value={object.position} onChange={v => onUpdate({ position: v })} />
+              <Vec3Row label="Rotation" value={object.rotation} onChange={v => onUpdate({ rotation: v })} />
+              <Vec3Row label="Scale"    value={object.scale}    onChange={v => onUpdate({ scale: v })} />
+            </Section>
+          )}
 
           {/* Mesh */}
           {object.mesh && (
@@ -141,25 +148,71 @@ export function Inspector({ object, onUpdate, onDelete, onDuplicate, onNameChang
 
           {/* Controller */}
           {object.controller && Object.keys(object.controller).length > 0 && (
-            <Section label="Controller">
-              {Object.entries(object.controller).map(([k, v]) => (
-                <PropRow key={k} label={k}>
-                  <input
-                    defaultValue={typeof v === 'string' ? v : JSON.stringify(v)}
-                    key={object.id + '-ctrl-' + k}
-                    onBlur={e => {
-                      const raw = e.target.value
-                      const parsed = isNaN(Number(raw)) ? raw : Number(raw)
-                      onUpdate({ controller: { ...object.controller, [k]: parsed } })
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                    style={{
-                      width: '100%', background: C.inputBg, border: `1px solid ${C.inputBorder}`, borderRadius: 3,
-                      fontSize: 10, color: C.text, padding: '2px 5px', outline: 'none', fontFamily: 'monospace',
-                    }}
-                  />
-                </PropRow>
-              ))}
+            <Section label={CONFIG_NODE_TYPES.has(object.type) ? object.type : 'Controller'}>
+              {Object.entries(object.controller).map(([k, v]) => {
+                // Color fields — show color picker
+                if ((k === 'color' || k === 'skyColor' || k === 'groundColor') && typeof v === 'string' && v.startsWith('#')) {
+                  return (
+                    <PropRow key={k} label={k}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="color"
+                          value={v as string}
+                          onChange={e => onUpdate({ controller: { ...object.controller, [k]: e.target.value } })}
+                          style={{ width: 22, height: 22, border: `1px solid ${C.inputBorder}`, borderRadius: 3, cursor: 'pointer', background: 'none', padding: 0 }}
+                        />
+                        <span style={{ fontSize: 9, color: '#666674', fontFamily: 'monospace' }}>{v as string}</span>
+                      </div>
+                    </PropRow>
+                  )
+                }
+                // Dropdown fields
+                if (k === 'preset' && object.type === 'PostFX') {
+                  return (
+                    <PropRow key={k} label={k}>
+                      <select
+                        value={v as string}
+                        onChange={e => onUpdate({ controller: { ...object.controller, [k]: e.target.value } })}
+                        style={{ width: '100%', background: C.selectBg, border: `1px solid ${C.inputBorder}`, borderRadius: 3, fontSize: 10, color: C.text, padding: '2px 4px', outline: 'none', cursor: 'pointer' }}
+                      >
+                        {['none', 'toon', 'outline'].map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </PropRow>
+                  )
+                }
+                if (k === 'fogType' && object.type === 'Fog') {
+                  return (
+                    <PropRow key={k} label={k}>
+                      <select
+                        value={v as string}
+                        onChange={e => onUpdate({ controller: { ...object.controller, [k]: e.target.value } })}
+                        style={{ width: '100%', background: C.selectBg, border: `1px solid ${C.inputBorder}`, borderRadius: 3, fontSize: 10, color: C.text, padding: '2px 4px', outline: 'none', cursor: 'pointer' }}
+                      >
+                        {['exp2', 'linear'].map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </PropRow>
+                  )
+                }
+                // Default text/number input
+                return (
+                  <PropRow key={k} label={k}>
+                    <input
+                      defaultValue={typeof v === 'string' ? v : JSON.stringify(v)}
+                      key={object.id + '-ctrl-' + k}
+                      onBlur={e => {
+                        const raw = e.target.value
+                        const parsed = isNaN(Number(raw)) ? raw : Number(raw)
+                        onUpdate({ controller: { ...object.controller, [k]: parsed } })
+                      }}
+                      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                      style={{
+                        width: '100%', background: C.inputBg, border: `1px solid ${C.inputBorder}`, borderRadius: 3,
+                        fontSize: 10, color: C.text, padding: '2px 5px', outline: 'none', fontFamily: 'monospace',
+                      }}
+                    />
+                  </PropRow>
+                )
+              })}
             </Section>
           )}
 
@@ -186,8 +239,14 @@ const TYPE_COLORS: Record<string, string> = {
   PlayerController: '#4ec9b0',
   NPCController:    '#f48771',
   StaticMesh:       '#9cdcfe',
-  DirectionalLight: '#dcdcaa',
-  PointLight:       '#dcdcaa',
+  DirectionalLight: '#ffe066',
+  PointLight:       '#ffcc44',
+  AmbientLight:     '#ffd580',
+  HemisphereLight:  '#87ceeb',
+  SpotLight:        '#ff9944',
+  Fog:              '#88aacc',
+  Sky:              '#4ec9f0',
+  PostFX:           '#c586c0',
   Item:             '#b5cea8',
   Trigger:          '#569cd6',
   GameController:   '#c586c0',

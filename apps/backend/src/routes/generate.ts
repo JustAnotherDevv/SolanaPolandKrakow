@@ -11,12 +11,24 @@ const connections = new Map<string, Response>()
 // POST /api/games/:id/message — trigger agent generation
 router.post('/:id/message', async (req, res) => {
   const gameId = req.params.id
-  const { message, mode } = req.body as { message: string; mode?: '2d' | '3d' }
+  const { message, mode, currentCode, currentScene } = req.body as {
+    message: string; mode?: '2d' | '3d'
+    currentCode?: string; currentScene?: unknown
+  }
 
   if (!message?.trim()) return res.status(400).json({ error: 'message required' })
 
   const game = db.prepare(`SELECT id FROM games WHERE id = ?`).get(gameId)
   if (!game) return res.status(404).json({ error: 'Game not found' })
+
+  // Sync frontend state to backend DB so agent has current context
+  if (currentCode != null || currentScene != null) {
+    const codeStr = currentCode ?? ''
+    const sceneStr = currentScene ? JSON.stringify(currentScene) : ''
+    db.prepare(`UPDATE games SET code = ?, scene = ?, updated_at = ? WHERE id = ?`).run(
+      codeStr, sceneStr, Date.now(), gameId,
+    )
+  }
 
   // Acknowledge immediately
   res.json({ ok: true, gameId })

@@ -62,10 +62,12 @@ interface CreatorStore {
   games: GeneratedGame[]
   activeGameId: string | null
   gameType: '2d' | '3d'
+  showHistory: boolean
 
   setGameType: (t: '2d' | '3d') => void
   startNewGame: (type?: '2d' | '3d') => string
   setActiveGame: (id: string | null) => void
+  setShowHistory: (v: boolean) => void
 
   updateCode: (id: string, code: string) => void
   updateName: (id: string, name: string) => void
@@ -146,8 +148,10 @@ export const useCreatorStore = create<CreatorStore>()(
       games: [],
       activeGameId: null,
       gameType: '2d',
+      showHistory: false,
 
       setGameType: (t) => set({ gameType: t }),
+      setShowHistory: (v) => set({ showHistory: v }),
 
       startNewGame: (type = '2d') => {
         const id = generateId()

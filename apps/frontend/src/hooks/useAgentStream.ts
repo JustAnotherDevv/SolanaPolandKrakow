@@ -40,6 +40,7 @@ export function useAgentStream(gameId: string) {
   const codeAccRef = useRef('')
   const assistantMsgIdRef = useRef('')
   const assetsAccRef = useRef<GeneratedAsset[]>([])
+  const stepsAccRef = useRef<AgentStepItem[]>([])
 
   // Ensure the backend game exists (create it with same ID as frontend)
   const ensureBackendGame = useCallback(async (name: string, type?: '2d' | '3d') => {
@@ -66,12 +67,9 @@ export function useAgentStream(gameId: string) {
 
       es.addEventListener('agent_step', (e) => {
         const data = JSON.parse(e.data) as { message: string; icon: string; step: string }
-        setSteps((prev) => [...prev, {
-          id: generateId(),
-          type: 'agent_step',
-          message: data.message,
-          icon: data.icon,
-        }])
+        const step = { id: generateId(), type: 'agent_step', message: data.message, icon: data.icon }
+        stepsAccRef.current = [...stepsAccRef.current, step]
+        setSteps((prev) => [...prev, step])
       })
 
       es.addEventListener('search_done', (e) => {
@@ -166,11 +164,21 @@ export function useAgentStream(gameId: string) {
           if (data.name) updateName(gameId, data.name)
         }
 
+        // Build a summary from what the agent actually did
+        const allSteps = stepsAccRef.current
         const assetCount = assetsAccRef.current.length
+        const actionLines = allSteps
+          .filter(s => s.message && s.type === 'agent_step' && !s.message.startsWith('Starting') && !s.message.startsWith('Fixing'))
+          .map(s => `${s.icon ?? '·'} ${s.message}`)
+        const summary = actionLines.length > 0
+          ? actionLines.join('\n')
+          : (code ? 'Game code updated.' : 'Done.')
+        const assetNote = assetCount > 0 ? `\n\n${assetCount} asset${assetCount !== 1 ? 's' : ''} generated.` : ''
+
         appendStoredMessage(gameId, {
           id: assistantMsgId,
           role: 'assistant',
-          content: `Generated game with ${assetCount} sprite asset${assetCount !== 1 ? 's' : ''}. Check the Code tab to preview!`,
+          content: summary + assetNote,
           versionId,
           timestamp: Date.now(),
         })
@@ -179,6 +187,7 @@ export function useAgentStream(gameId: string) {
         setStreaming(false)
         setStreamedCode('')
         codeAccRef.current = ''
+        stepsAccRef.current = []
         es.close()
       })
 
@@ -209,6 +218,7 @@ export function useAgentStream(gameId: string) {
       setStreamedCode('')
       codeAccRef.current = ''
       assetsAccRef.current = []
+      stepsAccRef.current = []
 
       const userMsgId = generateId()
       const assistantMsgId = generateId()
@@ -226,10 +236,16 @@ export function useAgentStream(gameId: string) {
         await ensureBackendGame(game?.name ?? 'Untitled Game', game?.type)
         await openStream()
 
+        // Send current code/scene so backend has context for modify mode
         const res = await fetch(`${BACKEND}/api/games/${gameId}/message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userMessage, mode: game?.type ?? '2d' }),
+          body: JSON.stringify({
+            message: userMessage,
+            mode: game?.type ?? '2d',
+            currentCode: game?.code ?? undefined,
+            currentScene: game?.scene ?? undefined,
+          }),
         })
 
         if (!res.ok) throw new Error(`Backend error: ${res.status}`)

@@ -3,7 +3,8 @@ import { chatCompletion, streamChatCompletion } from '../lib/openrouter'
 import { GAME_JUICE_LIB, buildSystemPrompt } from './prompts'
 import { build3DSystemPrompt } from './prompts3d'
 import { TOOL_DEFS, executeTool } from './tools'
-import { TOOL_DEFS_3D, executeTool3D } from './tools3d'
+import { TOOL_DEFS_3D, executeTool3D, initSceneFromExisting } from './tools3d'
+import type { Scene3D } from './tools3d'
 import type { Message } from '../lib/openrouter'
 import type { StepEmitter } from './types'
 
@@ -173,7 +174,20 @@ Rules:
 - Keep all existing asset URLs, game juice, and logic intact
 - Fix ONLY what causes the error`
 
-  const systemContent = isFix ? fixPrompt : (mode === '3d' ? build3DSystemPrompt() : buildSystemPrompt())
+  // For 3D games: load existing code/scene and pre-populate the scene accumulator
+  let existingCode: string | undefined
+  let existingScene: Scene3D | null = null
+  if (mode === '3d' && !isFix) {
+    const gameRow = db.prepare(`SELECT code, scene FROM games WHERE id = ?`).get(gameId) as
+      { code: string | null; scene: string | null } | undefined
+    existingCode = gameRow?.code || undefined
+    existingScene = gameRow?.scene ? JSON.parse(gameRow.scene) as Scene3D : null
+    if (existingScene) {
+      initSceneFromExisting(gameId, existingScene)
+    }
+  }
+
+  const systemContent = isFix ? fixPrompt : (mode === '3d' ? build3DSystemPrompt(existingCode, existingScene) : buildSystemPrompt())
 
   const allTools = mode === '3d' ? TOOL_DEFS_3D : TOOL_DEFS
   const toolsToUse = isFix

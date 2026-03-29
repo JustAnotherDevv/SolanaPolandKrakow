@@ -24,9 +24,14 @@ export function AppShell() {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-background">
-      <TopBar />
+      <TopBar activePage={activePage} />
 
       <main className="h-full pt-11 pb-14 overflow-hidden">
+        {/* CreatorPage stays mounted to preserve Three.js, SSE streams, editor state */}
+        <div style={{ display: activePage === 'publish' ? 'block' : 'none', height: '100%' }}>
+          <CreatorPage />
+        </div>
+
         <AnimatePresence mode="wait">
           {activePage === 'feed' && (
             <div key="feed" className="h-full">
@@ -41,11 +46,6 @@ export function AppShell() {
           {activePage === 'profile' && (
             <div key="profile" className="h-full">
               <ProfilePage />
-            </div>
-          )}
-          {activePage === 'publish' && (
-            <div key="publish" className="h-full">
-              <CreatorPage />
             </div>
           )}
         </AnimatePresence>

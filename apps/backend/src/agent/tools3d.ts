@@ -46,6 +46,12 @@ export function clearScene(gameId: string) {
   sceneAccumulators.delete(gameId)
 }
 
+/** Pre-populate the scene accumulator with existing scene data (for modify runs) */
+export function initSceneFromExisting(gameId: string, scene: Scene3D) {
+  // Deep clone so mutations don't affect the source
+  sceneAccumulators.set(gameId, JSON.parse(JSON.stringify(scene)))
+}
+
 // ─── Tool Definitions ─────────────────────────────────────────────────────────
 
 export const TOOL_DEFS_3D: ToolDefinition[] = [
@@ -116,7 +122,7 @@ export const TOOL_DEFS_3D: ToolDefinition[] = [
           name: { type: 'string', description: 'Unique descriptive name e.g. "Player", "Goblin_1", "Wall_North"' },
           type: {
             type: 'string',
-            enum: ['PlayerController', 'NPCController', 'StaticMesh', 'DirectionalLight', 'PointLight', 'Item', 'Trigger', 'GameController'],
+            enum: ['PlayerController', 'NPCController', 'StaticMesh', 'DirectionalLight', 'PointLight', 'AmbientLight', 'HemisphereLight', 'SpotLight', 'Item', 'Trigger', 'GameController', 'Fog', 'Sky', 'PostFX'],
             description: 'Object type determines behavior',
           },
           position: {
@@ -340,9 +346,15 @@ function getObjectIcon(type: string): string {
     StaticMesh: '⬛',
     DirectionalLight: '☀️',
     PointLight: '💡',
+    AmbientLight: '🔆',
+    HemisphereLight: '🌤',
+    SpotLight: '🔦',
     Item: '💎',
     Trigger: '🔲',
     GameController: '⚙️',
+    Fog: '🌫',
+    Sky: '🌌',
+    PostFX: '✨',
   }
   return icons[type] ?? '📦'
 }
