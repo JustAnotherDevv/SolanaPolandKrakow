@@ -3,13 +3,19 @@ import { db, generateId } from '../db/client'
 
 const router = Router()
 
-// POST /api/games — create new game
+// POST /api/games — create new game (accepts optional id from body)
 router.post('/', (req, res) => {
-  const id = generateId()
+  const body = req.body as { id?: string; name?: string }
+  const id = body.id ?? generateId()
+  const name = body.name ?? 'Untitled Game'
   const now = Date.now()
-  const name = (req.body as { name?: string })?.name ?? 'Untitled Game'
+  // Upsert — if game already exists just return it
+  const existing = db.prepare(`SELECT id, name, code, created_at FROM games WHERE id = ?`).get(id) as {
+    id: string; name: string; code: string; created_at: number
+  } | undefined
+  if (existing) return res.json({ id: existing.id, name: existing.name, code: existing.code, createdAt: existing.created_at })
   db.prepare(`INSERT INTO games (id, name, code, created_at, updated_at) VALUES (?, ?, '', ?, ?)`).run(id, name, now, now)
-  res.json({ id, name, code: '', createdAt: now })
+  return res.json({ id, name, code: '', createdAt: now })
 })
 
 // GET /api/games/:id

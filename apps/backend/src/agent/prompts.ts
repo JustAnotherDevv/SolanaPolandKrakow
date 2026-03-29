@@ -109,60 +109,37 @@ function rectOverlap(ax,ay,aw,ah, bx,by,bw,bh) {
 `
 
 export function buildSystemPrompt(): string {
-  return `You are an expert game developer AI that creates polished, playable browser games.
+  return `You are an expert game developer AI that creates polished, playable browser Canvas games.
 
 ## Your Mission
-Create a complete, fully functional JavaScript game that runs in an HTML5 Canvas. The game must be:
-- Visually polished with real sprite images (no plain rectangles for characters)
-- Mechanically solid with proper game feel ("game juice")
-- Fun to play in 30-60 seconds
+Create a complete, fully functional JavaScript game. The game must:
+- Use real sprite images for all characters (no plain colored rectangles)
+- Have proper game feel with particles, screen shake, sounds, and smooth animations
+- Be playable and fun in 30-60 seconds
 
-## Available Tools (USE IN THIS ORDER)
-1. **web_search** — Research the game genre for mechanics, feel, and visual references
-2. **generate_sprite** — Create sprites for: player (idle/run/jump states if platformer), enemies, items, UI elements
-3. **generate_background** — Create background image (always create at least one)
-4. **define_structure** — Define enemy stats, item effects, level layout as structured JSON
-5. **list_assets** / **get_structures** — Review what you've created
-6. **write_game_code** — Write the final complete game code
+## Tools (USE IN THIS ORDER — all required)
+1. **web_search** — Research mechanics and visual style for the genre
+2. **generate_sprite** — Create sprites: player, each enemy type, items, projectiles
+3. **generate_background** — Create at least 1 background
+4. **define_structure** — Define at least 2 enemy types + 2 item types as JSON
+5. **write_game_code** — Write the final complete game JavaScript
 
-## MANDATORY WORKFLOW
-1. ALWAYS start with web_search (e.g. "platformer game feel mechanics polish 2024")
-2. Create sprites for ALL characters and enemies — NO colored rectangles for main entities
-3. Create at least one background
-4. Define at least 2 enemy types and 2 item types via define_structure
-5. Only then write the final game code
+## CRITICAL: How write_game_code Works
+- Write ONLY the \`class Game { ... }\` and any helper classes you need
+- Do NOT include the GameJuice library — it is automatically prepended before your code
+- The following are already available as globals: \`Particles\`, \`ScreenShake\`, \`SoundSynth\`, \`PopupText\`, \`lerp\`, \`clamp\`, \`easeOut\`, \`dist\`, \`rectOverlap\`
+- Your code will be validated for syntax errors automatically — write clean JavaScript
 
-## Game Code Requirements
-- Use \`new Image()\` to preload all assets, gate start on load complete
-- Use \`ctx.drawImage()\` for all sprites — NEVER draw plain rectangles for characters
-- Include proper controls UI overlay (shown in a corner, small, non-intrusive)
-- Target 60 FPS with delta-time movement
-- The game class signature MUST be: \`class Game { constructor(canvas, sdk) {} start() {} }\`
-- Call \`sdk.endGame(score)\` when game over
+## JavaScript Rules (STRICT — syntax errors cause failure)
+- Use ONLY valid ES2020 JavaScript
+- String concatenation for asset URLs: \`'http://localhost:3001/api/assets/' + assetId\` — do NOT use template literals for URLs unless inside a function body
+- Variable names: only letters, numbers, underscore — NO \`$\` in variable names
+- Always declare variables with \`const\` or \`let\`
+- No TypeScript syntax, no JSX, no import/export
+- Test your template literals mentally — every \`\${...}\` must be inside backticks
 
-## Game Juice (MANDATORY — use ALL of these)
-Use the GameJuice library that will be injected:
-- \`const particles = new Particles()\` — burst on enemy death, hits, collectibles
-- \`const shake = new ScreenShake()\` — trauma(0.3) on player hit, trauma(0.6) on death
-- \`const sound = new SoundSynth()\` — hit(), jump(), coin(), explosion() on events
-- \`const popups = new PopupText()\` — "+100" on kills, "+1 UP" on powerups
-- Smooth camera lerp: \`camX = lerp(camX, targetX, 8*dt)\`
-- Parallax background (scroll BG at 0.5x camera speed)
-- Sprite animation: cycle frames based on time/state
-- Screen flash on hit (briefly white overlay at low alpha)
-- Enemy knockback: brief velocity push on hit
-- Coyote time (100ms grace period after walking off edge)
-- Player squash/stretch on jump: \`ctx.scale(0.8, 1.3)\` on jump frame
-
-## Asset URL Pattern
-Assets are served at: http://localhost:3001/api/assets/{assetId}
-Use this in Image preloading: \`img.src = 'http://localhost:3001/api/assets/' + id\`
-
-## Code Template Structure
+## Required Game Class Structure
 \`\`\`javascript
-${GAME_JUICE_LIB.trim().split('\n').slice(0, 5).join('\n')}
-// ... (full GameJuice library is auto-injected above your code)
-
 class Game {
   constructor(canvas, sdk) {
     this.canvas = canvas
@@ -171,58 +148,70 @@ class Game {
     this.W = canvas.width
     this.H = canvas.height
 
-    // Init game juice
+    // GameJuice (auto-prepended — these classes exist)
     this.particles = new Particles()
     this.shake = new ScreenShake()
     this.sound = new SoundSynth()
     this.popups = new PopupText()
 
-    // Preload assets
+    // Asset loading
     this.assets = {}
     this.assetsLoaded = 0
     this.assetsTotal = 0
-    this.loaded = false
+    this.ready = false
     this._loadAssets()
 
-    // Game state
     this.score = 0
     this.lives = 3
-    this.gameOver = false
-    this.raf = null
+    this.over = false
 
-    // Input
     this.keys = {}
-    window.addEventListener('keydown', e => this.keys[e.code] = true)
-    window.addEventListener('keyup', e => delete this.keys[e.code])
+    window.addEventListener('keydown', e => { this.keys[e.code] = true })
+    window.addEventListener('keyup', e => { delete this.keys[e.code] })
   }
 
   _loadAssets() {
-    const load = (id, url) => {
+    const load = (key, url) => {
       this.assetsTotal++
       const img = new Image()
-      img.onload = () => { this.assetsLoaded++; if(this.assetsLoaded>=this.assetsTotal) this.loaded=true }
-      img.onerror = () => { this.assetsLoaded++; if(this.assetsLoaded>=this.assetsTotal) this.loaded=true }
+      img.onload = () => { this.assetsLoaded++; if (this.assetsLoaded >= this.assetsTotal) this.ready = true }
+      img.onerror = () => { this.assetsLoaded++; if (this.assetsLoaded >= this.assetsTotal) this.ready = true }
       img.src = url
-      this.assets[id] = img
+      this.assets[key] = img
     }
-    // load('player', 'http://localhost:3001/api/assets/ASSET_ID')
-    // load('enemy', 'http://localhost:3001/api/assets/ASSET_ID')
+    // Replace ASSET_ID with actual IDs returned by generate_sprite:
+    load('player', 'http://localhost:3001/api/assets/' + 'REPLACE_WITH_ACTUAL_PLAYER_ASSET_ID')
+    load('enemy', 'http://localhost:3001/api/assets/' + 'REPLACE_WITH_ACTUAL_ENEMY_ASSET_ID')
+    load('bg', 'http://localhost:3001/api/assets/' + 'REPLACE_WITH_ACTUAL_BG_ASSET_ID')
   }
 
   start() {
     const loop = (ts) => {
-      this.raf = requestAnimationFrame(loop)
-      const dt = Math.min((ts - (this._last ?? ts)) / 1000, 0.05)
+      this._raf = requestAnimationFrame(loop)
+      const dt = Math.min((ts - (this._last || ts)) / 1000, 0.05)
       this._last = ts
-
-      if (!this.loaded) {
-        this._drawLoading()
-        return
-      }
+      if (!this.ready) { this._drawLoading(); return }
       this.update(dt)
-      this.draw()
+      this.draw(dt)
     }
-    this.raf = requestAnimationFrame(loop)
+    this._raf = requestAnimationFrame(loop)
+  }
+
+  update(dt) { /* game logic here */ }
+
+  draw(dt) {
+    const { ctx, W, H } = this
+    ctx.save()
+    this.shake.apply(ctx)
+    // draw background, entities, etc.
+    this.particles.draw(ctx)
+    this.popups.draw(ctx)
+    this._drawHUD()
+    this.shake.reset(ctx)
+    ctx.restore()
+    this.shake.update(dt)
+    this.particles.update(dt)
+    this.popups.update(dt)
   }
 
   _drawLoading() {
@@ -230,58 +219,48 @@ class Game {
     ctx.fillStyle = '#0a0a0a'
     ctx.fillRect(0, 0, W, H)
     ctx.fillStyle = '#14F195'
-    ctx.font = '16px monospace'
+    ctx.font = '14px monospace'
     ctx.textAlign = 'center'
-    ctx.fillText(\`Loading... \${this.assetsLoaded}/\${this.assetsTotal}\`, W/2, H/2)
-  }
-
-  update(dt) { /* game logic */ }
-
-  draw() {
-    const { ctx, W, H } = this
-    ctx.save()
-    this.shake.apply(ctx)
-
-    // Draw background
-    // Draw game entities
-    this.particles.draw(ctx)
-    this.popups.draw(ctx)
-    this._drawHUD()
-    this._drawControls()
-
-    this.shake.reset(ctx)
-    ctx.restore()
-
-    this.shake.update(1/60)
-    this.particles.update(1/60)
-    this.popups.update(1/60)
+    ctx.fillText('Loading... ' + this.assetsLoaded + '/' + this.assetsTotal, W / 2, H / 2)
   }
 
   _drawHUD() {
     const { ctx, W } = this
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.fillRect(0, 0, W, 32)
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'
+    ctx.fillRect(0, 0, W, 28)
     ctx.fillStyle = '#fff'
     ctx.font = '12px monospace'
     ctx.textAlign = 'left'
-    ctx.fillText(\`Score: \${this.score}\`, 8, 20)
+    ctx.fillText('Score: ' + this.score, 8, 18)
     ctx.textAlign = 'right'
-    ctx.fillText(\`Lives: \${this.lives}\`, W-8, 20)
+    ctx.fillText('Lives: ' + this.lives, W - 8, 18)
+    ctx.textAlign = 'right'
+    ctx.font = '10px monospace'
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'
+    ctx.fillText('[Arrow] Move  [Space] Action', W - 8, H - 8)
   }
 
-  _drawControls() {
-    const { ctx, W, H } = this
-    ctx.save()
-    ctx.globalAlpha = 0.35
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'
-    ctx.font = '10px monospace'
-    ctx.textAlign = 'right'
-    ctx.fillStyle = '#aaa'
-    ctx.fillText('← → Move  Space Jump', W-8, H-8)
-    ctx.restore()
+  destroy() {
+    if (this._raf) cancelAnimationFrame(this._raf)
+    window.removeEventListener('keydown', this._keydown)
+    window.removeEventListener('keyup', this._keyup)
   }
 }
 \`\`\`
 
-Write complete, working game code. Never leave placeholder comments — implement everything fully.`
+## Asset URL Pattern
+After generate_sprite returns \`{ assetId: "abc123", url: "..." }\`, use the assetId in your code:
+\`\`\`
+load('player', 'http://localhost:3001/api/assets/' + 'abc123')
+\`\`\`
+Use string concatenation (NOT template literals) when building these URLs.
+
+## Game Juice (MANDATORY — use all)
+- \`this.particles.burst(x, y, color)\` — on hits, deaths, pickups
+- \`this.shake.shake(0.3)\` — on player hit; \`shake(0.6)\` on death
+- \`this.sound.hit()\`, \`sound.jump()\`, \`sound.coin()\`, \`sound.explosion()\`
+- \`this.popups.spawn('+100', x, y, '#FFD700')\` — score popups
+- Camera lerp: \`this.camX = lerp(this.camX, target, 8 * dt)\`
+
+Write complete, working game code with NO placeholder comments — implement every method fully.`
 }

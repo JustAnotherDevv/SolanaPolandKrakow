@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils'
 interface CreatorChatProps {
   gameId: string
   onPreview: (code?: string) => void
+  autoSend?: string | null
+  onAutoSendConsumed?: () => void
 }
 
 // ─── Code block with copy button ──────────────────────────────────────────────
@@ -147,7 +149,7 @@ const STARTER_PROMPTS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CreatorChat({ gameId, onPreview }: CreatorChatProps) {
+export function CreatorChat({ gameId, onPreview, autoSend, onAutoSendConsumed }: CreatorChatProps) {
   const game = useCreatorStore((s) => s.games.find((g) => g.id === gameId))
   const updateName = useCreatorStore((s) => s.updateName)
   const agentStream = useAgentStream(gameId)
@@ -168,6 +170,14 @@ export function CreatorChat({ gameId, onPreview }: CreatorChatProps) {
 
   const messages = game?.chatHistory ?? []
   const versionCount = game?.versions.length ?? 0
+
+  useEffect(() => {
+    if (autoSend && !streaming) {
+      send(autoSend)
+      onAutoSendConsumed?.()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSend])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

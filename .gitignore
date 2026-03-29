@@ -5,8 +5,15 @@ node_modules/
 # Build outputs
 apps/frontend/dist/
 apps/frontend/.vite/
+apps/backend/dist/
 anchor/target/
 anchor/.anchor/
+
+# SQLite databases
+apps/backend/data/
+*.db
+*.db-shm
+*.db-wal
 
 # Environment
 .env
@@ -15,6 +22,9 @@ anchor/.anchor/
 apps/frontend/.env
 apps/frontend/.env.local
 apps/frontend/.env.*.local
+apps/backend/.env
+apps/backend/.env.local
+apps/backend/.env.*.local
 
 # Logs
 *.log

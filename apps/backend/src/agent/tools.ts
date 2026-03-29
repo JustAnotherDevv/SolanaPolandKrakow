@@ -30,14 +30,13 @@ export const TOOL_DEFS: ToolDefinition[] = [
       parameters: {
         type: 'object',
         properties: {
-          gameId: { type: 'string' },
           name: { type: 'string', description: 'Asset identifier e.g. "player", "enemy_slime"' },
           description: { type: 'string', description: 'Detailed visual description of the sprite' },
           style: { type: 'string', description: 'Art style e.g. "pixel art", "cartoon", "retro 16-bit"' },
-          width: { type: 'number', default: 64 },
-          height: { type: 'number', default: 64 },
+          width: { type: 'number', default: 256 },
+          height: { type: 'number', default: 256 },
         },
-        required: ['gameId', 'name', 'description'],
+        required: ['name', 'description'],
       },
     },
   },
@@ -49,13 +48,12 @@ export const TOOL_DEFS: ToolDefinition[] = [
       parameters: {
         type: 'object',
         properties: {
-          gameId: { type: 'string' },
           name: { type: 'string', description: 'Asset identifier e.g. "background_forest"' },
           description: { type: 'string', description: 'Detailed description of the background scene' },
           width: { type: 'number', default: 512 },
           height: { type: 'number', default: 256 },
         },
-        required: ['gameId', 'name', 'description'],
+        required: ['name', 'description'],
       },
     },
   },
@@ -67,12 +65,11 @@ export const TOOL_DEFS: ToolDefinition[] = [
       parameters: {
         type: 'object',
         properties: {
-          gameId: { type: 'string' },
           type: { type: 'string', description: 'Structure type: "enemy", "item", "level", "ability"' },
           name: { type: 'string', description: 'Name of this entry e.g. "Goblin", "Health Potion"' },
           data: { type: 'object', description: 'Structured data (stats, effects, layout etc.)' },
         },
-        required: ['gameId', 'type', 'name', 'data'],
+        required: ['type', 'name', 'data'],
       },
     },
   },
@@ -80,13 +77,11 @@ export const TOOL_DEFS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'list_assets',
-      description: 'List all generated assets for a game',
+      description: 'List all generated assets for this game',
       parameters: {
         type: 'object',
-        properties: {
-          gameId: { type: 'string' },
-        },
-        required: ['gameId'],
+        properties: {},
+        required: [],
       },
     },
   },
@@ -94,14 +89,13 @@ export const TOOL_DEFS: ToolDefinition[] = [
     type: 'function',
     function: {
       name: 'get_structures',
-      description: 'Get all or filtered game structures for a game',
+      description: 'Get all or filtered game structures for this game',
       parameters: {
         type: 'object',
         properties: {
-          gameId: { type: 'string' },
           type: { type: 'string', description: 'Optional filter: "enemy", "item", "level", "ability"' },
         },
-        required: ['gameId'],
+        required: [],
       },
     },
   },
@@ -141,12 +135,12 @@ export async function executeTool(
     }
 
     case 'generate_sprite': {
-      const { gameId, name, description, style, width = 64, height = 64 } = args as {
+      const { gameId, name, description, style, width = 256, height = 256 } = args as {
         gameId: string; name: string; description: string; style?: string; width?: number; height?: number
       }
       const prompt = spritePrompt(description, style ?? 'pixel art')
       emit({ type: 'generating', data: { name, type: 'sprite', prompt } })
-      const imageBuffer = await generateImage(prompt, width as number, height as number)
+      const imageBuffer = await generateImage(prompt, width as number, height as number, true)
       const assetId = generateId()
       const now = Date.now()
       db.prepare(`INSERT INTO assets (id, game_id, name, type, prompt, data, width, height, created_at)

@@ -37,6 +37,7 @@ export function useAgentStream(gameId: string) {
   const eventSourceRef = useRef<EventSource | null>(null)
   const codeAccRef = useRef('')
   const assistantMsgIdRef = useRef('')
+  const assetsAccRef = useRef<GeneratedAsset[]>([])
 
   // Ensure the backend game exists (create it with same ID as frontend)
   const ensureBackendGame = useCallback(async (name: string) => {
@@ -94,7 +95,8 @@ export function useAgentStream(gameId: string) {
 
       es.addEventListener('asset_ready', (e) => {
         const data = JSON.parse(e.data) as { assetId: string; name: string; url: string; type: string }
-        setAssets((prev) => [...prev, data])
+        assetsAccRef.current = [...assetsAccRef.current, data]
+        setAssets(assetsAccRef.current)
         setSteps((prev) => [
           ...prev.slice(0, -1), // replace last "generating" step
           { id: generateId(), type: 'asset_ready', message: `Generated: ${data.name}`, icon: '✓', name: data.name, assetUrl: data.url },
@@ -123,6 +125,11 @@ export function useAgentStream(gameId: string) {
         }])
       })
 
+      es.addEventListener('code_reset', () => {
+        codeAccRef.current = ''
+        setStreamedCode('')
+      })
+
       es.addEventListener('code_chunk', (e) => {
         const data = JSON.parse(e.data) as { delta: string }
         codeAccRef.current += data.delta
@@ -134,16 +141,18 @@ export function useAgentStream(gameId: string) {
         const code = codeAccRef.current
         const assistantMsgId = assistantMsgIdRef.current
 
+        let versionId: string | undefined
         if (code) {
-          addVersion(gameId, code, assistantMsgId)
+          versionId = addVersion(gameId, code, assistantMsgId)
           if (data.name) updateName(gameId, data.name)
         }
 
+        const assetCount = assetsAccRef.current.length
         appendStoredMessage(gameId, {
           id: assistantMsgId,
           role: 'assistant',
-          content: `Generated game with ${assets.length} sprite assets. Check the Code tab to preview!`,
-          versionId: code ? undefined : undefined,
+          content: `Generated game with ${assetCount} sprite asset${assetCount !== 1 ? 's' : ''}. Check the Code tab to preview!`,
+          versionId,
           timestamp: Date.now(),
         })
 
@@ -180,6 +189,7 @@ export function useAgentStream(gameId: string) {
       setAssets([])
       setStreamedCode('')
       codeAccRef.current = ''
+      assetsAccRef.current = []
 
       const userMsgId = generateId()
       const assistantMsgId = generateId()

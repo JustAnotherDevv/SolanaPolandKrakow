@@ -38,6 +38,7 @@ export function CreatorPage() {
   const [preview, setPreview] = useState<PreviewState | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
+  const [autoFixMessage, setAutoFixMessage] = useState<string | null>(null)
 
   function handleTypeSelect() {
     startNewGame()
@@ -53,6 +54,13 @@ export function CreatorPage() {
     setActiveGame(id)
     setView('chat')
     setShowHistory(false)
+  }
+
+  function handleFixError(error: string, code: string) {
+    setPreview(null)
+    setView('chat')
+    const msg = `[FIX_ERROR]\nRuntime error: ${error}\n\nCurrent code:\n${code}`
+    setAutoFixMessage(msg)
   }
 
   function openPreview(codeOverride?: string) {
@@ -243,6 +251,8 @@ export function CreatorPage() {
               <CreatorChat
                 gameId={activeGameId}
                 onPreview={openPreview}
+                autoSend={autoFixMessage}
+                onAutoSendConsumed={() => setAutoFixMessage(null)}
               />
             </motion.div>
           )}
@@ -301,6 +311,7 @@ export function CreatorPage() {
             code={preview.code}
             versionLabel={preview.versionLabel}
             onClose={() => setPreview(null)}
+            onFixError={activeGameId ? handleFixError : undefined}
           />
         )}
       </AnimatePresence>

@@ -1,4 +1,4 @@
-import { db } from '../db/client'
+import { db, generateId } from '../db/client'
 import { chatCompletion, streamChatCompletion } from '../lib/openrouter'
 import { GAME_JUICE_LIB, buildSystemPrompt } from './prompts'
 import { TOOL_DEFS, executeTool } from './tools'
@@ -8,9 +8,9 @@ import type { StepEmitter } from './types'
 const AGENT_MODEL = process.env.AGENT_MODEL ?? 'anthropic/claude-3.5-sonnet'
 const CODE_MODEL = process.env.CODE_MODEL ?? 'google/gemini-2.0-flash-001'
 const MAX_STEPS = 25
+const MAX_AUTOFIX = 3
 
 function saveMessage(gameId: string, msg: Message) {
-  const { generateId } = require('../db/client')
   db.prepare(`INSERT INTO conversations (id, game_id, role, content, tool_calls, tool_call_id, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
     generateId(),
@@ -36,32 +36,141 @@ function loadHistory(gameId: string): Message[] {
   }))
 }
 
+/** Check JS syntax using Node's Function constructor. Returns error string or null. */
+function checkSyntax(code: string): string | null {
+  try {
+    new Function(code) // eslint-disable-line no-new-func
+    return null
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e)
+  }
+}
+
+/** Prepend GameJuice library if not already present in code. */
+function injectGameJuice(code: string): string {
+  if (code.includes('class Particles') || code.includes('class ScreenShake')) return code
+  return GAME_JUICE_LIB + '\n' + code
+}
+
+/** Strip markdown fences if the LLM wrapped output. */
+function stripFences(code: string): string {
+  const fenceMatch = code.match(/```(?:javascript|js|typescript|ts)?\s*\n([\s\S]*?)```/)
+  return fenceMatch ? fenceMatch[1].trim() : code.trim()
+}
+
+/**
+ * Auto-fix syntax errors using CODE_MODEL.
+ * Emits a code_reset + new code_chunks on each attempt.
+ */
+async function autoFixSyntax(
+  code: string,
+  syntaxErr: string,
+  emit: StepEmitter,
+  attempt = 1,
+): Promise<string> {
+  if (attempt > MAX_AUTOFIX) {
+    emit({ type: 'agent_step', data: { message: `⚠️ Could not auto-fix after ${MAX_AUTOFIX} attempts`, icon: '⚠️', step: 'error' } })
+    return code // return best effort
+  }
+
+  emit({ type: 'agent_step', data: {
+    message: `🔧 Auto-fixing syntax error (attempt ${attempt}/${MAX_AUTOFIX})...`,
+    icon: '🔧', step: 'autofix',
+  }})
+
+  const messages: Message[] = [
+    { role: 'system', content: 'You fix JavaScript syntax errors. Return ONLY valid JavaScript code with no markdown, no explanation, no fences.' },
+    { role: 'user', content: `Fix this JavaScript syntax error and return the corrected complete code:\n\nError: ${syntaxErr}\n\nCode:\n${code}` },
+  ]
+
+  let fixed = ''
+  try {
+    // Signal frontend to reset accumulated code before new chunks
+    emit({ type: 'code_reset', data: {} })
+
+    for await (const chunk of streamChatCompletion(CODE_MODEL, messages)) {
+      fixed += chunk
+      emit({ type: 'code_chunk', data: { delta: chunk } })
+    }
+    fixed = stripFences(fixed)
+  } catch {
+    return code
+  }
+
+  const newErr = checkSyntax(fixed)
+  if (!newErr) return fixed
+  return autoFixSyntax(fixed, newErr, emit, attempt + 1)
+}
+
+/**
+ * Finalize code: inject GameJuice, validate syntax, auto-fix if needed.
+ * Returns the verified final code.
+ */
+async function finalizeCode(rawCode: string, emit: StepEmitter): Promise<string> {
+  emit({ type: 'coding', data: { message: 'Finalizing game code...' } })
+
+  let code = stripFences(rawCode)
+  code = injectGameJuice(code)
+
+  // Emit full code as one chunk
+  emit({ type: 'code_reset', data: {} })
+  emit({ type: 'code_chunk', data: { delta: code } })
+
+  // Syntax check
+  const syntaxErr = checkSyntax(code)
+  if (syntaxErr) {
+    emit({ type: 'agent_step', data: { message: `⚠️ Syntax error detected: ${syntaxErr}`, icon: '⚠️', step: 'syntax_error' } })
+    code = await autoFixSyntax(code, syntaxErr, emit)
+  } else {
+    emit({ type: 'agent_step', data: { message: '✓ Code validated — no syntax errors', icon: '✓', step: 'validated' } })
+  }
+
+  return code
+}
+
 export async function runAgentLoop(
   gameId: string,
   userMessage: string,
   emit: StepEmitter,
 ): Promise<{ code: string; name: string }> {
-  // Load conversation history
   const history = loadHistory(gameId)
 
-  // Add user message
   const userMsg: Message = { role: 'user', content: userMessage }
   history.push(userMsg)
   saveMessage(gameId, userMsg)
 
-  const systemMsg: Message = { role: 'system', content: buildSystemPrompt() }
+  const isFix = userMessage.trimStart().startsWith('[FIX_ERROR]')
+  const systemContent = isFix
+    ? `You are fixing a broken JavaScript game. The user provides the runtime error and current code.
+Analyze the error, fix it, and immediately call write_game_code with the corrected JavaScript.
+Rules:
+- Do NOT call web_search, generate_sprite, or any other tool
+- ONLY call write_game_code once with the fixed code
+- Keep all existing asset URLs, game juice, and logic intact
+- Fix ONLY what causes the error`
+    : buildSystemPrompt()
+
+  const toolsToUse = isFix
+    ? TOOL_DEFS.filter((t) => t.function.name === 'write_game_code')
+    : TOOL_DEFS
+
+  const systemMsg: Message = { role: 'system', content: systemContent }
   const messages: Message[] = [systemMsg, ...history]
 
   let finalCode = ''
   let finalName = 'AI Game'
   let steps = 0
 
-  emit({ type: 'agent_step', data: { message: 'Starting game creation...', icon: '🎮', step: 'start' } })
+  emit({ type: 'agent_step', data: {
+    message: isFix ? 'Fixing runtime error...' : 'Starting game creation...',
+    icon: isFix ? '🔧' : '🎮',
+    step: 'start',
+  }})
 
   while (steps < MAX_STEPS) {
     steps++
 
-    const response = await chatCompletion(AGENT_MODEL, messages, TOOL_DEFS, 0.7)
+    const response = await chatCompletion(AGENT_MODEL, messages, toolsToUse, isFix ? 0.3 : 0.7)
     const choice = response.choices[0]
     if (!choice) throw new Error('Empty response from AI')
 
@@ -73,13 +182,11 @@ export async function runAgentLoop(
     messages.push(assistantMsg)
     saveMessage(gameId, assistantMsg)
 
-    // No tool calls — text response (shouldn't happen in normal flow, but handle gracefully)
     if (!choice.message.tool_calls?.length) {
       if (choice.finish_reason === 'stop') break
       continue
     }
 
-    // Execute each tool call
     for (const toolCall of choice.message.tool_calls) {
       const toolName = toolCall.function.name
       let args: Record<string, unknown>
@@ -88,6 +195,9 @@ export async function runAgentLoop(
       } catch {
         args = {}
       }
+
+      // Always inject the real gameId — the LLM doesn't know it
+      args.gameId = gameId
 
       let result: unknown
       let isDone = false
@@ -98,14 +208,12 @@ export async function runAgentLoop(
         isDone = out.done ?? false
 
         if (isDone && out.code) {
-          // Stream the final code generation
-          const code = await streamCode(gameId, out.code, emit)
-          finalCode = code
+          finalCode = await finalizeCode(out.code, emit)
           finalName = out.name ?? 'AI Game'
         }
       } catch (err) {
         result = { error: String(err) }
-        emit({ type: 'error', data: { message: String(err) } })
+        emit({ type: 'agent_step', data: { message: `⚠️ Tool error: ${String(err)}`, icon: '⚠️', step: 'error' } })
       }
 
       const toolResultMsg: Message = {
@@ -117,7 +225,6 @@ export async function runAgentLoop(
       saveMessage(gameId, toolResultMsg)
 
       if (isDone) {
-        // Update game code in DB
         db.prepare(`UPDATE games SET code = ?, name = ?, updated_at = ? WHERE id = ?`).run(
           finalCode, finalName, Date.now(), gameId,
         )
@@ -128,45 +235,4 @@ export async function runAgentLoop(
   }
 
   throw new Error('Agent loop exceeded maximum steps without finishing')
-}
-
-async function streamCode(_gameId: string, rawCode: string, emit: StepEmitter): Promise<string> {
-  emit({ type: 'coding', data: { message: 'Writing game code with game juice...' } })
-
-  // Ask CODE_MODEL to finalize and inject game juice
-  const finalPrompt = `You are given a game code draft. Your job is to:
-1. Inject the GameJuice library at the top (before the Game class)
-2. Ensure ALL game juice features are actively used (particles, shake, sound, popups)
-3. Ensure sprites are loaded from the asset URLs in the code
-4. Return ONLY the complete JavaScript code, no markdown, no explanation
-
-GameJuice Library to inject:
-${GAME_JUICE_LIB}
-
-Draft code:
-${rawCode}
-
-Return the complete final JavaScript code:`
-
-  const codeMessages: Message[] = [
-    { role: 'system', content: 'You are a game code finalizer. Return only valid JavaScript code, no markdown.' },
-    { role: 'user', content: finalPrompt },
-  ]
-
-  let fullCode = ''
-  try {
-    const stream = streamChatCompletion(CODE_MODEL, codeMessages)
-    for await (const chunk of stream) {
-      fullCode += chunk
-      emit({ type: 'code_chunk', data: { delta: chunk } })
-    }
-    // Strip markdown fences if model wrapped it
-    fullCode = fullCode.replace(/^```[a-z]*\n?/m, '').replace(/```\s*$/m, '').trim()
-  } catch {
-    // Fallback: use raw code with game juice prepended
-    fullCode = GAME_JUICE_LIB + '\n' + rawCode
-    emit({ type: 'code_chunk', data: { delta: fullCode } })
-  }
-
-  return fullCode
 }

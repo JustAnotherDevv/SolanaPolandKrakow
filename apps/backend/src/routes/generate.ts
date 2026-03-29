@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express'
-import { db, generateId } from '../db/client'
+import { db } from '../db/client'
 import { runAgentLoop } from '../agent/loop'
 import type { AgentStep } from '../agent/types'
 
@@ -61,15 +61,6 @@ router.get('/:id/stream', (req: Request, res: Response) => {
     clearInterval(heartbeat)
     connections.delete(gameId)
   })
-})
-
-// POST /api/games — create game and return id (convenience)
-router.post('/new', (req, res) => {
-  const id = generateId()
-  const now = Date.now()
-  const name = (req.body as { name?: string })?.name ?? 'Untitled Game'
-  db.prepare(`INSERT INTO games (id, name, code, created_at, updated_at) VALUES (?, ?, '', ?, ?)`).run(id, name, now, now)
-  res.json({ id, name, createdAt: now })
 })
 
 export default router

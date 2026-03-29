@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { X, AlertCircle } from 'lucide-react'
+import { X, AlertCircle, Wrench } from 'lucide-react'
 import { runGameCode, type GameInstance } from '@/lib/gameRunner'
 
 interface GamePreviewProps {
@@ -8,9 +8,10 @@ interface GamePreviewProps {
   codeOverride?: string
   versionLabel?: string
   onClose: () => void
+  onFixError?: (error: string, code: string) => void
 }
 
-export function GamePreview({ code, codeOverride, versionLabel, onClose }: GamePreviewProps) {
+export function GamePreview({ code, codeOverride, versionLabel, onClose, onFixError }: GamePreviewProps) {
   const runCode = codeOverride ?? code
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const instanceRef = useRef<GameInstance | null>(null)
@@ -131,9 +132,19 @@ export function GamePreview({ code, codeOverride, versionLabel, onClose }: GameP
             </div>
             <div className="text-center space-y-1 max-w-sm">
               <p className="text-sm font-medium text-red-400">Runtime Error</p>
-              <p className="text-xs font-light text-white/50 break-all">{runError}</p>
+              <p className="text-xs font-mono text-white/50 break-all bg-white/5 rounded-lg px-3 py-2 max-h-24 overflow-y-auto">{runError}</p>
             </div>
-            <p className="text-xs text-white/30 font-light">Ask AI to fix the error or edit the code manually</p>
+            {onFixError ? (
+              <button
+                onClick={() => { onFixError(runError!, runCode); onClose() }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/15 border border-primary/30 text-primary text-xs font-medium hover:bg-primary/25 transition-all"
+              >
+                <Wrench size={12} />
+                Fix with AI
+              </button>
+            ) : (
+              <p className="text-xs text-white/30 font-light">Edit the code manually to fix the error</p>
+            )}
           </div>
         ) : (
           <canvas ref={canvasRef} className="w-full h-full block" style={{ touchAction: 'none' }} />
